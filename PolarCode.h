@@ -12,4 +12,11 @@ std::vector<std::vector<int>> PolarTransform(int n);
 std::vector<int> PolarEncoding(const std::vector<int>& Message, 
                               const std::vector<std::vector<int>>& PolarMatrix);
 
+//function gives sequences of realibitiy channel < N
+std::vector<int> ReliabilitySequenceForN(int N);
+
+//Gives new message with frozen bytes
+std::vector<int> AddFrozen(std::vector<int> Message, int N);
+
+
 
