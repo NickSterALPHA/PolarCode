@@ -16,9 +16,10 @@ std::vector<double> AWGN(const std::vector<int>& CodeWord, double stddev) {
     std::vector<double> result;
     std::random_device rd;
     std::mt19937 gen(rd());
-    std::normal_distribution<> dist(0.0, 2.0);
+    std::normal_distribution<> dist(0.0, stddev);
     for (auto num : CodeWord) {
         result.push_back((double)num + dist(gen));
     }
     return result;
 }
+

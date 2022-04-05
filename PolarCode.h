@@ -18,5 +18,25 @@ std::vector<int> ReliabilitySequenceForN(int N);
 //Gives new message with frozen bytes
 std::vector<int> AddFrozen(std::vector<int> Message, int N);
 
+//Function "sign" in math, sign(x) = -1 if x < 0, sign(x) = 1 if x > 0, sign(x) = 0 if x = 0
+double sgn(double num);
 
+// Function F(a, b) "minsum" for 2 num
+double F(double a, double b);
 
+//Function G(a, b, U) for 3 num
+double G(double a, double b, double c);
+
+//Function F(a,b) "minsum" for vectors, return vector {F(first[1], second[1]), F(first[2], second[2]) ...} 
+std::vector<double> FuncFVectors(std::vector<double> first, std::vector<double> second); 
+
+//Function G(a,b,U)  for vectors, return vector {G(first[1], second[1], third[1]), G ...} 
+std::vector<double> FuncGVectors(std::vector<double> first, std::vector<double> second, 
+                                 std::vector<double> third);
+
+// takes vectors : v1 and v2 , then return [v1 xor v2, v2]
+std::vector<int> SumTwoVectors(std::vector<int> first, 
+                                  std::vector<int> second);
+                                  
+// Decoding of Polar code with SC method
+std::vector<int> SC_Decoding(std::vector<double> CodeWord, int k);
