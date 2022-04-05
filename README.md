@@ -4,9 +4,11 @@ Implementation of polar code decoding algorithms
 # Struct of Project
 
 PolarCode.h - list of function, which helps to decode/encode msg
+
 PolarCode.cpp - implementation of function from PolarCode.h
 
 Simulation.h - list of function, which helps to simulate channel 
+
 Simulation.cpp - implementation of function from Simulation.h
 
 Testing.cpp - main file 
