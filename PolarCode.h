@@ -1,5 +1,6 @@
 #pragma once
 #include <vector>
+#include <map>
 
 // operation for two matrices, which gives a new combined matrix
 std::vector<std::vector<int>> KroneckerProduct(std::vector<std::vector<int>> first, 
@@ -40,3 +41,29 @@ std::vector<int> SumTwoVectors(std::vector<int> first,
                                   
 // Decoding of Polar code with SC method
 std::vector<int> SC_Decoding(std::vector<double> CodeWord, int k);
+
+// Generate all posible vectors with values from 0 to 255 in binary representation
+std::vector<std::vector<int>> GenerateVectors();
+
+// left shift vector by one position
+void LShiftVector(std::vector<int> &vec);
+
+// xor two bytes(vectors)
+std::vector<int> operator^ (const std::vector<int>& first,const std::vector<int>& second);
+
+// table with finished xor results
+std::map<std::vector<int>, std::vector<int>> GenerateTable(std::vector<int> Gpolynom);
+
+// return crc - code for message 
+std::vector<int> Get_CRC_8(std::vector<int> message);
+
+// check: CRC-code corresponds to this message ? 
+bool Check_CRC_8(std::vector<int> message);
+
+
+
+
+
+;
+
+

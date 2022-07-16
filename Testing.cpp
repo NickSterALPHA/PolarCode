@@ -60,5 +60,27 @@ int main() {
 
     auto timeSC = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin);
     std::cout << "The time of SC algortihm equal " << timeSC.count() << " milliseconds" << std::endl;
+
+
+    std::cout << "Prepare for algorutithm SC List" << std::endl;
+    std::cout << "Current message: " << std::endl;
+    PrintVector<int>(message);
+
+    std::cout << "CRC - Code for message: " << std::endl;
+    std::vector<int> crc_code = Get_CRC_8(message);
+    PrintVector<int>(crc_code);
+    std::cout << "Message with CRC - Code " << std::endl;
+    std::vector<int> msg_crc(message);
+    msg_crc.insert(msg_crc.end(), crc_code.begin(), crc_code.end());
+    PrintVector<int>(msg_crc);
+    std::cout << "Check CRC - code for message with crc : ";
+    if (Check_CRC_8(msg_crc)) {
+        std::cout << "Successfull" << std::endl;
+    } else {
+        std::cout << "Not Successfull" << std::endl;
+    }
+
+
+    
     return 0;
 }

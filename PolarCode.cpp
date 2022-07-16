@@ -1,5 +1,4 @@
 #include "PolarCode.h"
-#include <vector>
 #include <cmath>
 #include <algorithm>
 #include <string>
@@ -234,4 +233,93 @@ std::vector<int> SC_Decoding(std::vector<double> CodeWord, int k) {
         }
     }
     return result;
+}
+
+std::vector<std::vector<int>> GenerateVectors() {
+    std::vector<std::vector<int>> result;
+    for (int j = 0; j < 256; j ++) {
+        std::vector<int> vec;
+        for (int i = 7; i >= 0; i--) {
+            if (j & (1 << i)) {
+                vec.push_back(1);
+            } else {
+                vec.push_back(0);
+            }
+        }
+        result.push_back(vec);
+    }
+    return result;
+
+}
+void LShiftVector(std::vector<int> &vec) {
+    for (int i = 1; i < vec.size(); i++) {
+        vec[i-1] = vec[i];
+    }
+    vec[vec.size() - 1] = 0;
+}
+
+std::vector<int> operator^ (const std::vector<int>& first,const std::vector<int>& second) {
+    // it works if first.size() == second.size()
+    std::vector<int> result;
+    for (int i = 0; i < first.size(); i++) {
+        result.push_back(first[i]^second[i]);
+    }
+    return result;
+}
+
+std::map<std::vector<int>, std::vector<int>> GenerateTable(std::vector<int> Gpolynom) {
+    std::map<std::vector<int>, std::vector<int>> result;
+    std::vector<std::vector<int>> all_vectors = GenerateVectors();
+    for (auto vec : all_vectors) {
+        std::vector<int> copy_vec = vec;
+        for (int i = 0; i < vec.size(); i++ ) {
+            if (vec[0] == 1) {
+                LShiftVector(vec);
+                vec = vec ^ Gpolynom;
+            } else {
+                LShiftVector(vec);
+            }
+        }
+        result[copy_vec] = vec;
+    }
+    return result;
+
+}
+
+std::vector<int> Get_CRC_8(std::vector<int> message) {
+    std::vector<int> G = {0,0,0,0,0,1,1,1}; // generating polynom
+    std::map<std::vector<int>, std::vector<int>> table = GenerateTable(G);
+
+    if (message.size() % 8 != 0) {
+        int num_to_add = 8 - (message.size() % 8);
+        std::vector<int> zeros(num_to_add, 0);
+        message.insert(message.begin(), zeros.begin(), zeros.end());
+    }
+
+    std::vector<int> begin = {0, 0, 0, 0, 0, 0, 0, 0};
+    for (int i = 0; i + 7 < message.size(); i += 8) {
+        std::vector<int> PartMsg;
+        std::copy(message.begin() + i, message.begin()+i+8, std::back_inserter(PartMsg));
+        std::vector<int> data = begin ^ PartMsg;
+        begin = table[data];
+    }
+
+    return begin;
+
+}
+
+bool Check_CRC_8(std::vector<int> message) {
+    if (message.size() % 8 != 0) {
+        int num_to_add = 8 - (message.size() % 8);
+        std::vector<int> zeros(num_to_add, 0);
+        message.insert(message.begin(), zeros.begin(), zeros.end());
+    }
+
+
+    message = Get_CRC_8(message);
+    std::vector<int> zero_vector(8, 0);
+    if (message == zero_vector) {
+        return true;
+    }
+    return false;
 }
