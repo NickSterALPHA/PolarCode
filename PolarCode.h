@@ -2,6 +2,7 @@
 #include <vector>
 #include <map>
 
+
 // operation for two matrices, which gives a new combined matrix
 std::vector<std::vector<int>> KroneckerProduct(std::vector<std::vector<int>> first, 
                                         std::vector<std::vector<int>> second);
@@ -60,10 +61,12 @@ std::vector<int> Get_CRC_8(std::vector<int> message);
 // check: CRC-code corresponds to this message ? 
 bool Check_CRC_8(std::vector<int> message);
 
+// SC List Decoder, which returns 8 possible CodeWords
+std::vector<std::vector<int>> SCList_8(std::vector<double> CodeWord, int k);
 
 
 
 
-;
+
 
 

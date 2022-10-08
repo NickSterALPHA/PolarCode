@@ -73,12 +73,40 @@ int main() {
     std::vector<int> msg_crc(message);
     msg_crc.insert(msg_crc.end(), crc_code.begin(), crc_code.end());
     PrintVector<int>(msg_crc);
-    std::cout << "Check CRC - code for message with crc : ";
-    if (Check_CRC_8(msg_crc)) {
-        std::cout << "Successfull" << std::endl;
-    } else {
-        std::cout << "Not Successfull" << std::endl;
-    }
+    
+
+
+    k = (int)message.size(); N = (int)pow(2, (int)log2(k) + 2); // N = 2 ^ n
+    messageFrozen = AddFrozen(message, N);
+    std::cout << "Message with frozen bytes : ";
+    PrintVector<int>(messageFrozen);
+
+    Matrix1 = PolarTransform((int)log2(N));
+    CodeWord = PolarEncoding(messageFrozen, Matrix1);
+    std::cout << "CodeWord : ";
+    PrintVector<int>(CodeWord);
+
+
+    BPSK(CodeWord);
+    std::cout << "After Bpsk : ";
+    PrintVector<int>(CodeWord);
+
+
+    ReceivedWord = AWGN(CodeWord, 1.0);
+    std::cout << "After BPSK and AWGN : ";
+    PrintVector<double>(ReceivedWord);
+
+    begin = std::chrono::steady_clock::now();
+    std::vector<std::vector<int>> EightWords = SCList_8(ReceivedWord, k);
+    end = std::chrono::steady_clock::now();
+
+    timeSC = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin);
+    std::cout << "The time of SC algortihm equal " << timeSC.count() << " milliseconds" << std::endl;
+
+
+
+
+
 
 
     
