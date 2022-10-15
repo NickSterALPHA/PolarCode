@@ -330,23 +330,23 @@ bool Check_CRC_8(std::vector<int> message) {
 using vector3d_double = std::vector<std::vector<std::vector<double>>>;
 using vector3d_int = std::vector<std::vector<std::vector<int>>>;
 
-std::vector<std::vector<int>> SCList_8(std::vector<double> CodeWord, int k) {
+std::vector<std::vector<int>> SCList_8(std::vector<double> CodeWord, int k, int decod_num) {
     int N = CodeWord.size();
     int depth_max = (int)log2(N);
     std::vector<int> RelSeq = ReliabilitySequenceForN(N);
     std::sort(RelSeq.begin(), RelSeq.begin() + N - k);
     std::vector<int> states(2*N-1, 0);
 
-    vector3d_double L(8, std::vector<std::vector<double>> 
+    vector3d_double L(decod_num, std::vector<std::vector<double>> 
                                      (depth_max+1, CodeWord));
 
-    vector3d_int Ucap(8, std::vector<std::vector<int>>
+    vector3d_int Ucap(decod_num, std::vector<std::vector<int>>
                          (depth_max + 1, std::vector<int> (N, 0)));
 
-    std::vector<double> PathMetric_old(8, std::numeric_limits<double>::max());
-    std::vector<double> PathMetric_new(8, std::numeric_limits<double>::max());
-    std::vector<double> PathMetric(8, std::numeric_limits<double>::max());
-    std::vector<double> DMetric(8);
+    std::vector<double> PathMetric_old(decod_num, std::numeric_limits<double>::max());
+    std::vector<double> PathMetric_new(decod_num, std::numeric_limits<double>::max());
+    std::vector<double> PathMetric(decod_num, std::numeric_limits<double>::max());
+    std::vector<double> DMetric(decod_num);
     PathMetric[0] = 0;  
 
     int depth = 0, node = 0;
@@ -356,14 +356,14 @@ std::vector<std::vector<int>> SCList_8(std::vector<double> CodeWord, int k) {
     while (flag == 0) {
         int CurNode = pow(2, depth) - 1 + node;
         if (depth == depth_max) { // if we are in leaf
-            for (int i = 0; i < 8; i++) {
+            for (int i = 0; i < decod_num; i++) {
                 DMetric[i] = L[i][depth][node];
             }
             if (std::binary_search(RelSeq.begin(), RelSeq.begin() + N - k, node)) { // if bit is frozen
-                 for (int i = 0; i < 8; i++) {
+                 for (int i = 0; i < decod_num; i++) {
                     Ucap[i][depth][node] = 0;
                  }
-                 for (int i = 0; i < 8; i++) {
+                 for (int i = 0; i < decod_num; i++) {
                     if (DMetric[i] < 0) {
                         if (PathMetric[i] != std::numeric_limits<double>::max()) {
                             PathMetric[i] = PathMetric[i] - DMetric[i];
@@ -373,20 +373,20 @@ std::vector<std::vector<int>> SCList_8(std::vector<double> CodeWord, int k) {
             }
              else {
                 // make vector of pos and update pm
-                std::vector<bool> Dec(8);
-                std::vector<bool> Pos(8);
-                for (int i = 0; i < 8; i++) {
+                std::vector<bool> Dec(decod_num);
+                std::vector<bool> Pos(decod_num);
+                for (int i = 0; i < decod_num; i++) {
                     Dec[i] = (DMetric[i] < 0);
                 }
                 PathMetric_old = PathMetric;
                 PathMetric_new = PathMetric;
-                for (int i = 0; i < 8; i++) {
+                for (int i = 0; i < decod_num; i++) {
                     if (PathMetric_new[i] != std::numeric_limits<double>::max()) {
                         PathMetric_new[i] += std::abs(DMetric[i]);
                     }
                 }
                 std::vector<double> ConcVector(PathMetric_old);
-                std::vector<int> Positions(8);
+                std::vector<int> Positions(decod_num);
                 ConcVector.insert(ConcVector.end(), PathMetric_new.begin(), PathMetric_new.end());
                 std::map <double, int> my_map;
                 for (int i = 0; i < ConcVector.size(); i++) {
@@ -395,7 +395,7 @@ std::vector<std::vector<int>> SCList_8(std::vector<double> CodeWord, int k) {
 
                 int cnt = 0;
                 for(auto num : my_map) {
-                    if (cnt >= 8) {
+                    if (cnt >= decod_num) {
                         break;
                     }
                     PathMetric[cnt] = num.first;
@@ -403,38 +403,41 @@ std::vector<std::vector<int>> SCList_8(std::vector<double> CodeWord, int k) {
                     cnt++;
                 }
 
-                for (int i = 0; i < 8; i++) {
-                    Pos[i] = (Positions[i] >= 8);
+                for (int i = 0; i < decod_num; i++) {
+                    Pos[i] = (Positions[i] >= decod_num);
                     if (Pos[i]) {
-                        Positions[i] -= 8;
+                        Positions[i] -= decod_num;
                     }
                 }
 
                 std::vector<bool> CopyDec = Dec;
 
-                for(int i = 0; i < 8; i++) {
+                for(int i = 0; i < decod_num; i++) {
                     Dec[i] = CopyDec[Positions[i]];
                 }
 
-                for (int i = 0; i < 8; i++) {
+                for (int i = 0; i < decod_num; i++) {
                     if (Pos[i]) {
                         Dec[i] = !Dec[i];
                     }
                 }
-                vector3d_double L_copy(8, std::vector<std::vector<double>> 
-                                     (depth_max+1, CodeWord));
+                vector3d_double L_copy(decod_num);
+                vector3d_int Ucap_copy(decod_num);
 
-                for (int i = 0; i < 8; i++) {
+                for  (int i = 0; i < decod_num; i++) {
+                    L_copy[i] = L[i];
+                    Ucap_copy[i] = Ucap[i];
+                }
+
+                for (int i = 0; i < decod_num; i++) {
                     L[i] = L_copy[Positions[i]];
                 }
-                vector3d_int Ucap_copy(8, std::vector<std::vector<int>>
-                         (depth_max + 1, std::vector<int> (N, 0)));
 
-                for (int i = 0; i < 8; i++) {
+                for (int i = 0; i < decod_num; i++) {
                     Ucap[i] = Ucap_copy[Positions[i]];
                 }
                 //
-                for (int i = 0; i < 8; i++) {
+                for (int i = 0; i < decod_num; i++) {
                     Ucap[i][depth][node] = Dec[i];
                 }
             }
@@ -448,22 +451,22 @@ std::vector<std::vector<int>> SCList_8(std::vector<double> CodeWord, int k) {
             if (states[CurNode] == 0) {
                 int length_node = pow(2, depth_max - depth);
                 std::vector<std::vector<double>> 
-                node_parent (8, std::vector<double>(length_node)), 
-                a(8, std::vector<double>(length_node / 2)), 
-                b(8, std::vector<double>(length_node / 2));
+                node_parent (decod_num, std::vector<double>(length_node)), 
+                a(decod_num, std::vector<double>(length_node / 2)), 
+                b(decod_num, std::vector<double>(length_node / 2));
 
-                for (int i = 0; i < 8; i++ ) {
+                for (int i = 0; i < decod_num; i++ ) {
                 std::copy(L[i][depth].begin() + length_node*node, 
                           L[i][depth].begin() + length_node *(node + 1), node_parent[i].begin());
                 std::copy(node_parent[i].begin(), node_parent[i].begin()+length_node/2, a[i].begin() );
                 std::copy(node_parent[i].begin()+ length_node/2, node_parent[i].end(), b[i].begin());
                 }
                 depth++; node *= 2; length_node /= 2;
-                std::vector<std::vector<double>> FuncF(8);
-                for (int i = 0; i < 8; i++) {
+                std::vector<std::vector<double>> FuncF(decod_num);
+                for (int i = 0; i < decod_num; i++) {
                     FuncF[i] = FuncFVectors(a[i], b[i]);
                 }
-                for (int i = 0; i < 8; i++) {
+                for (int i = 0; i < decod_num; i++) {
                     std::copy(FuncF[i].begin(), FuncF[i].end(), 
                         L[i][depth].begin() + length_node*node);
                 }
@@ -472,11 +475,11 @@ std::vector<std::vector<int>> SCList_8(std::vector<double> CodeWord, int k) {
             else if (states[CurNode] == 1) {
                 int length_node = pow(2, depth_max - depth);
                 std::vector<std::vector<double>>
-                node_parent(8, std::vector<double>(length_node)),
-                a(8, std::vector<double>(length_node / 2)), 
-                b(8, std::vector<double>(length_node / 2));
+                node_parent(decod_num, std::vector<double>(length_node)),
+                a(decod_num, std::vector<double>(length_node / 2)), 
+                b(decod_num, std::vector<double>(length_node / 2));
 
-                for (int i = 0; i < 8; i++) {
+                for (int i = 0; i < decod_num; i++) {
                     std::copy(L[i][depth].begin() + length_node*node, 
                           L[i][depth].begin() + length_node *(node + 1), node_parent[i].begin());
                     std::copy(node_parent[i].begin(), node_parent[i].begin()+length_node/2, a[i].begin() );
@@ -486,20 +489,20 @@ std::vector<std::vector<int>> SCList_8(std::vector<double> CodeWord, int k) {
                 int left_child_depth = depth + 1;
                 int left_child_node = node * 2;
                 int left_length_node =  length_node / 2;
-                std::vector<std::vector<double>> CurUCap(8, std::vector<double>(left_length_node));
+                std::vector<std::vector<double>> CurUCap(decod_num, std::vector<double>(left_length_node));
                 
-                for (int i = 0; i < 8; i++) {
+                for (int i = 0; i < decod_num; i++) {
                     std::copy(Ucap[i][left_child_depth].begin() + left_child_node*left_length_node,
                         Ucap[i][left_child_depth].begin() + left_length_node*(left_child_node+1), CurUCap[i].begin());
                 }
 
                 depth++; node = node * 2 + 1; length_node /= 2;
-                std::vector<std::vector<double>> FuncG(8);
-                for (int i = 0; i < 8; i++) {
+                std::vector<std::vector<double>> FuncG(decod_num);
+                for (int i = 0; i < decod_num; i++) {
                     FuncG[i] = FuncGVectors(a[i], b[i], CurUCap[i]);
                 } 
 
-                for (int i = 0; i < 8; i++) {
+                for (int i = 0; i < decod_num; i++) {
                     std::copy(FuncG[i].begin(), FuncG[i].end(), L[i][depth].begin() + length_node*node);
                 }
                 states[CurNode] = 2;
@@ -509,23 +512,23 @@ std::vector<std::vector<int>> SCList_8(std::vector<double> CodeWord, int k) {
                 int gen_length_node = length_node / 2, gen_depth = depth + 1;
                 int left_node = 2 * node, right_node = 2 * node + 1;
                 std::vector<std::vector<int>> 
-                Ucap_left (8, std::vector<int>(gen_length_node)), 
-                Ucap_right(8, std::vector<int>(gen_length_node));
+                Ucap_left (decod_num, std::vector<int>(gen_length_node)), 
+                Ucap_right(decod_num, std::vector<int>(gen_length_node));
                 
-                for (int i = 0; i < 8; i++) {
-                    std::copy(Ucap[gen_depth].begin() + gen_length_node*left_node,
-                          Ucap[gen_depth].begin() + gen_length_node*(left_node + 1),
-                          Ucap_left.begin());
-                    std::copy(Ucap[gen_depth].begin() + gen_length_node*right_node,
-                          Ucap[gen_depth].begin() + gen_length_node*(right_node + 1),
-                          Ucap_right.begin()); 
+                for (int i = 0; i < decod_num; i++) {
+                    std::copy(Ucap[i][gen_depth].begin() + gen_length_node*left_node,
+                          Ucap[i][gen_depth].begin() + gen_length_node*(left_node + 1),
+                          Ucap_left[i].begin());
+                    std::copy(Ucap[i][gen_depth].begin() + gen_length_node*right_node,
+                          Ucap[i][gen_depth].begin() + gen_length_node*(right_node + 1),
+                          Ucap_right[i].begin()); 
                 }
 
-                std::vector<std::vector<int>> GetUcap(8);
-                for (int i = 0; i < 8; i++) {
+                std::vector<std::vector<int>> GetUcap(decod_num);
+                for (int i = 0; i < decod_num; i++) {
                     GetUcap[i] = SumTwoVectors(Ucap_left[i], Ucap_right[i]);
                 } 
-                for (int i = 0; i < 8; i++) {
+                for (int i = 0; i < decod_num; i++) {
                     std::copy(GetUcap[i].begin(), GetUcap[i].end(), 
                         Ucap[i][depth].begin() + length_node*node);
                 }        
@@ -534,9 +537,9 @@ std::vector<std::vector<int>> SCList_8(std::vector<double> CodeWord, int k) {
         }
     }
 
-    std::vector<std::vector<int>> result(8);
+    std::vector<std::vector<int>> result;
 
-    for (int j = 0; j < 8; j++) {
+    for (int j = 0; j < decod_num; j++) {
         std::vector<int> temp;
         for (int i = 0; i < Ucap[j][depth_max].size(); i++) {
             if (!std::binary_search(RelSeq.begin(), RelSeq.begin() + N - k, i)) {
@@ -547,4 +550,14 @@ std::vector<std::vector<int>> SCList_8(std::vector<double> CodeWord, int k) {
     }
     return result;
 
+}
+
+
+std::vector<int> Msg_Correct_CRC(const std::vector<std::vector<int>>& PosibleWords) {
+    for (auto word : PosibleWords) {
+        if (Check_CRC_8(word)) {
+            return word;
+        }
+    }
+    return std::vector<int> (PosibleWords[0].size(), -1);
 }
