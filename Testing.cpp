@@ -93,7 +93,7 @@ int main() {
     PrintVector<int>(CodeWord);
 
 
-    ReceivedWord = AWGN(CodeWord, 1.8);
+    ReceivedWord = AWGN(CodeWord, 1.3);
     std::cout << "After BPSK and AWGN : ";
     PrintVector<double>(ReceivedWord);
 
