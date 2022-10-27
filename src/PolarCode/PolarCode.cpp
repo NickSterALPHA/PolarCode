@@ -330,7 +330,7 @@ bool Check_CRC_8(std::vector<int> message) {
 using vector3d_double = std::vector<std::vector<std::vector<double>>>;
 using vector3d_int = std::vector<std::vector<std::vector<int>>>;
 
-std::vector<std::vector<int>> SCList_8(std::vector<double> CodeWord, int k, int decod_num) {
+std::vector<std::vector<int>> SCList(std::vector<double> CodeWord, int k, int decod_num) {
     int N = CodeWord.size();
     int depth_max = (int)log2(N);
     std::vector<int> RelSeq = ReliabilitySequenceForN(N);
@@ -559,5 +559,8 @@ std::vector<int> Msg_Correct_CRC(const std::vector<std::vector<int>>& PosibleWor
             return word;
         }
     }
-    return std::vector<int> (PosibleWords[0].size(), -1);
+    return PosibleWords[0]; // take random word
 }
+
+
+std::vector<int> Fast_SCL(std::vector<double> CodeWord, int k);

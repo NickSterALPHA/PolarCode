@@ -61,12 +61,14 @@ std::vector<int> Get_CRC_8(std::vector<int> message);
 // check: CRC-code corresponds to this message ? 
 bool Check_CRC_8(std::vector<int> message);
 
-// SC List Decoder, which returns 8 possible CodeWords
-std::vector<std::vector<int>> SCList_8(std::vector<double> CodeWord, int k, int decod_num);
-
+// SC List Decoder, which returns decod_num possible CodeWords
+std::vector<std::vector<int>> SCList(std::vector<double> CodeWord, int k, int decod_num);
 
 // Choose Message with correct CRC - code
 std::vector<int> Msg_Correct_CRC(const std::vector<std::vector<int>>& PosibleWords);
+
+// fast SCL decoder
+std::vector<int> Fast_SCL(std::vector<double> CodeWord, int k);
 
 
 

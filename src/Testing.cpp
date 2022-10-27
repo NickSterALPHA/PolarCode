@@ -35,7 +35,7 @@ int main() {
     PrintVector<int>(CodeWord);
 
 
-    std::vector<double> ReceivedWord = AWGN(CodeWord, 1.0);
+    std::vector<double> ReceivedWord = AWGN(CodeWord, 1.4);
     std::cout << "After BPSK and AWGN : ";
     PrintVector<double>(ReceivedWord);
 
@@ -93,12 +93,12 @@ int main() {
     PrintVector<int>(CodeWord);
 
 
-    ReceivedWord = AWGN(CodeWord, 1.3);
+    ReceivedWord = AWGN(CodeWord, 1.4);
     std::cout << "After BPSK and AWGN : ";
     PrintVector<double>(ReceivedWord);
 
     begin = std::chrono::steady_clock::now();
-    std::vector<std::vector<int>> PosibleWords = SCList_8(ReceivedWord, k, 23);
+    std::vector<std::vector<int>> PosibleWords = SCList(ReceivedWord, k, 20);
     end = std::chrono::steady_clock::now();
 
     timeSC = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin);

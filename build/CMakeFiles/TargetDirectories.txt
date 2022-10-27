@@ -1,0 +1,5 @@
+C:/Users/Господин/OneDrive/Рабочий стол/git/PolarCode/build/CMakeFiles/SimulationLib.dir
+C:/Users/Господин/OneDrive/Рабочий стол/git/PolarCode/build/CMakeFiles/PolarCodeLib.dir
+C:/Users/Господин/OneDrive/Рабочий стол/git/PolarCode/build/CMakeFiles/TestingEXE.dir
+C:/Users/Господин/OneDrive/Рабочий стол/git/PolarCode/build/CMakeFiles/ALL_BUILD.dir
+C:/Users/Господин/OneDrive/Рабочий стол/git/PolarCode/build/CMakeFiles/ZERO_CHECK.dir
