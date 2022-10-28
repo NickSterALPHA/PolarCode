@@ -1,31 +1,29 @@
-# PolarCode
-Implementation of polar code decoding algorithms
+# Info
+Implementation decoding algorithms of Polar Code
 
-# Struct of Project
+# Headers in Project
 
 PolarCode.h - list of function, which helps to decode/encode msg
 
-PolarCode.cpp - implementation of function from PolarCode.h
-
 Simulation.h - list of function, which helps to simulate channel 
 
-Simulation.cpp - implementation of function from Simulation.h
+# How to install and Open Project
 
-Testing.cpp - main file 
+1) git clone [our repository]
 
-# How to compile ???
-1) You need to generate objects files
+2) cd build
 
-clang -c PolarCode.cpp
+3) cmake ..
 
-clang -c Simulation.cpp
+4) cmake --build .
 
-clang -c Testing.cpp
+5) cd Debug
 
-2) You need to link objects files
+There are two applications.
 
-clang PolarCode.o Simulation.o Testing.o -o Testing.exe
+a) ExampleEXE.exe - is console aplication, which helps to understand, how functions works
 
-# How to run ????
+b) MainAppEXE.exe - is form aplication, which builds graphs for decoders
 
-You need to open CMD and open file "Testing.exe"
+6) .\MainAppEXE.exe [or .\ExampleEXE.exe ]
+
