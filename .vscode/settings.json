@@ -44,6 +44,18 @@
         "chrono": "cpp",
         "map": "cpp",
         "ratio": "cpp",
-        "xtree": "cpp"
+        "xtree": "cpp",
+        "ctime": "cpp",
+        "deque": "cpp",
+        "fstream": "cpp",
+        "iomanip": "cpp",
+        "iterator": "cpp",
+        "locale": "cpp",
+        "set": "cpp",
+        "sstream": "cpp",
+        "xlocbuf": "cpp",
+        "xlocmes": "cpp",
+        "xlocmon": "cpp",
+        "xloctime": "cpp"
     }
 }

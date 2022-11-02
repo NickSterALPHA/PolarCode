@@ -37,8 +37,8 @@ std::vector<int> ReliabilitySequence {0, 1, 2, 4, 8, 16, 32, 3, 5, 64, 9, 6, 17,
 1007, 1015, 1019, 1021, 1022, 1023};
 
 
-std::vector<std::vector<int>> KroneckerProduct(std::vector<std::vector<int>> first, 
-                                        std::vector<std::vector<int>> second) {
+std::vector<std::vector<int>> KroneckerProduct(const std::vector<std::vector<int>>& first, 
+                                       const std::vector<std::vector<int>>& second) {
 
     std::vector<std::vector<int>> result;
     for (int i = 0; i < first.size(); i++) {
@@ -79,7 +79,7 @@ std::vector<int> PolarEncoding(const std::vector<int>& Message,
     }
     return result;
 }
-std::vector<int> ReliabilitySequenceForN(int N) {
+std::vector<int> ReliabilitySequenceForN(const int& N) {
     std::vector<int> result;
     for (int i = 0; i < ReliabilitySequence.size(); i++) {
         if (ReliabilitySequence[i] <= N-1) {
@@ -89,7 +89,7 @@ std::vector<int> ReliabilitySequenceForN(int N) {
     return result;
 }
 
-std::vector<int> AddFrozen(std::vector<int> Message, int N) {
+std::vector<int> AddFrozen(const std::vector<int>& Message, const int& N) {
     std::vector<int> result(N, 0);
     int k = Message.size();
     std::vector<int> seq = ReliabilitySequenceForN(N);
@@ -100,8 +100,17 @@ std::vector<int> AddFrozen(std::vector<int> Message, int N) {
     return result;
 }
 
+std::vector<int> IsFrozenNode(const std::vector<int>& RelSeq, const int& num_froz) {
+    std::vector<int> result(RelSeq.size(), 0);
+    int i = 0;
+    while (i < num_froz) {
+        result[RelSeq[i]] = 1;
+        i++;
+    }
+    return result;
+}
 
-double sgn(double num) {
+double sgn(const double& num) {
     if (num < 0.0) {
         return -1.0;
     } else if (num == 0.0) {
@@ -110,16 +119,16 @@ double sgn(double num) {
     return 1.0;
 }
 
-double F(double a, double b) {
-    return sgn(a)*sgn(b)*(std::min(abs(a), abs(b)));
+double F(const double& a, const double& b) {
+    return sgn(a)*sgn(b)*(std::min(std::abs(a), std::abs(b)));
 }
 
-double G(double a, double b, double c) {
+double G(const double& a, const double& b, const double& c) {
     return b + (1 - 2 * c)*a;
 }
 
-std::vector<double> FuncFVectors(std::vector<double> first,
-                                 std::vector<double> second) {
+std::vector<double> FuncFVectors(const std::vector<double>& first,
+                                 const std::vector<double>& second) {
     std::vector<double> result;
     for (int i = 0; i < first.size(); i++) {
         result.push_back(F(first[i], second[i]));
@@ -127,9 +136,9 @@ std::vector<double> FuncFVectors(std::vector<double> first,
     return result;
 }
 
-std::vector<double> FuncGVectors(std::vector<double> first,
-                                 std::vector<double> second, 
-                                 std::vector<double> third) {
+std::vector<double> FuncGVectors(const std::vector<double>& first,
+                                 const std::vector<double>& second, 
+                                 const std::vector<double>& third) {
     std::vector<double> result;
     for (int i = 0; i < first.size(); i++) {
         result.push_back(G(first[i], second[i], third[i]));
@@ -137,8 +146,8 @@ std::vector<double> FuncGVectors(std::vector<double> first,
     return result;
 }
 
-std::vector<int> SumTwoVectors(std::vector<int> first, 
-                                  std::vector<int> second) {
+std::vector<int> SumTwoVectors(const std::vector<int>& first, 
+                                const std::vector<int>& second) {
     std::vector<int> res;
     for (int i = 0; i < first.size(); i++) {
         res.push_back(first[i] ^ second[i]);
@@ -147,12 +156,13 @@ std::vector<int> SumTwoVectors(std::vector<int> first,
     return res;
 }
 
-std::vector<int> SC_Decoding(std::vector<double> CodeWord, int k) {
+std::vector<int> SC_Decoding(const std::vector<double>& CodeWord, const int& k) {
     
     int N = CodeWord.size();
     int depth_max = (int)log2(N);
     std::vector<int> RelSeq = ReliabilitySequenceForN(N);
-    std::sort(RelSeq.begin(), RelSeq.begin() + N - k);
+    std::vector<int> IsFrozen = IsFrozenNode(RelSeq, N - k);
+
     std::vector<int> states(2*N-1, 0);
     std::vector<std::vector<double>> L(depth_max + 1, CodeWord);
     std::vector<std::vector<int>> Ucap(depth_max + 1, std::vector<int> (N, 0));  
@@ -163,7 +173,7 @@ std::vector<int> SC_Decoding(std::vector<double> CodeWord, int k) {
     while (flag == 0) {
         int CurNode = pow(2, depth) - 1 + node;
         if (depth == depth_max) { // if we are in leaf
-            if (std::binary_search(RelSeq.begin(), RelSeq.begin() + N - k, node)) { // if bit is frozen
+            if (IsFrozen[node] == 1) { // if bit is frozen
                  Ucap[depth][node] = 0;
             }
              else {
@@ -231,7 +241,7 @@ std::vector<int> SC_Decoding(std::vector<double> CodeWord, int k) {
     }
     std::vector<int> result;
     for (int i = 0; i < Ucap[depth_max].size(); i++) {
-        if (!std::binary_search(RelSeq.begin(), RelSeq.begin() + N - k, i)) {
+        if (IsFrozen[i] == 0) {
             result.push_back(Ucap[depth_max][i]);
         }
     }
@@ -270,7 +280,7 @@ std::vector<int> operator^ (const std::vector<int>& first,const std::vector<int>
     return result;
 }
 
-std::map<std::vector<int>, std::vector<int>> GenerateTable(std::vector<int> Gpolynom) {
+std::map<std::vector<int>, std::vector<int>> GenerateTable(const std::vector<int>& Gpolynom) {
     std::map<std::vector<int>, std::vector<int>> result;
     std::vector<std::vector<int>> all_vectors = GenerateVectors();
     for (auto vec : all_vectors) {
@@ -330,11 +340,12 @@ bool Check_CRC_8(std::vector<int> message) {
 using vector3d_double = std::vector<std::vector<std::vector<double>>>;
 using vector3d_int = std::vector<std::vector<std::vector<int>>>;
 
-std::vector<std::vector<int>> SCList(std::vector<double> CodeWord, int k, int decod_num) {
+std::vector<std::vector<int>> SCList(const std::vector<double>& CodeWord, const int& k, const int& decod_num) {
     int N = CodeWord.size();
     int depth_max = (int)log2(N);
     std::vector<int> RelSeq = ReliabilitySequenceForN(N);
-    std::sort(RelSeq.begin(), RelSeq.begin() + N - k);
+    std::vector<int> IsFrozen = IsFrozenNode(RelSeq, N - k);
+
     std::vector<int> states(2*N-1, 0);
 
     vector3d_double L(decod_num, std::vector<std::vector<double>> 
@@ -359,7 +370,7 @@ std::vector<std::vector<int>> SCList(std::vector<double> CodeWord, int k, int de
             for (int i = 0; i < decod_num; i++) {
                 DMetric[i] = L[i][depth][node];
             }
-            if (std::binary_search(RelSeq.begin(), RelSeq.begin() + N - k, node)) { // if bit is frozen
+            if (IsFrozen[node] == 1) { // if bit is frozen
                  for (int i = 0; i < decod_num; i++) {
                     Ucap[i][depth][node] = 0;
                  }
@@ -373,8 +384,8 @@ std::vector<std::vector<int>> SCList(std::vector<double> CodeWord, int k, int de
             }
              else {
                 // make vector of pos and update pm
-                std::vector<bool> Dec(decod_num);
-                std::vector<bool> Pos(decod_num);
+                std::vector<bool> Dec(decod_num, false);
+                std::vector<bool> Pos(decod_num, false);
                 for (int i = 0; i < decod_num; i++) {
                     Dec[i] = (DMetric[i] < 0);
                 }
@@ -394,7 +405,7 @@ std::vector<std::vector<int>> SCList(std::vector<double> CodeWord, int k, int de
                 }
 
                 int cnt = 0;
-                for(auto num : my_map) {
+                for(const auto& num : my_map) {
                     if (cnt >= decod_num) {
                         break;
                     }
@@ -410,17 +421,15 @@ std::vector<std::vector<int>> SCList(std::vector<double> CodeWord, int k, int de
                     }
                 }
 
-                std::vector<bool> CopyDec = Dec;
+                std::vector<bool> CopyDec(Dec);
 
                 for(int i = 0; i < decod_num; i++) {
                     Dec[i] = CopyDec[Positions[i]];
-                }
-
-                for (int i = 0; i < decod_num; i++) {
                     if (Pos[i]) {
                         Dec[i] = !Dec[i];
                     }
                 }
+
                 vector3d_double L_copy(decod_num);
                 vector3d_int Ucap_copy(decod_num);
 
@@ -431,13 +440,7 @@ std::vector<std::vector<int>> SCList(std::vector<double> CodeWord, int k, int de
 
                 for (int i = 0; i < decod_num; i++) {
                     L[i] = L_copy[Positions[i]];
-                }
-
-                for (int i = 0; i < decod_num; i++) {
                     Ucap[i] = Ucap_copy[Positions[i]];
-                }
-                //
-                for (int i = 0; i < decod_num; i++) {
                     Ucap[i][depth][node] = Dec[i];
                 }
             }
@@ -465,8 +468,6 @@ std::vector<std::vector<int>> SCList(std::vector<double> CodeWord, int k, int de
                 std::vector<std::vector<double>> FuncF(decod_num);
                 for (int i = 0; i < decod_num; i++) {
                     FuncF[i] = FuncFVectors(a[i], b[i]);
-                }
-                for (int i = 0; i < decod_num; i++) {
                     std::copy(FuncF[i].begin(), FuncF[i].end(), 
                         L[i][depth].begin() + length_node*node);
                 }
@@ -500,11 +501,8 @@ std::vector<std::vector<int>> SCList(std::vector<double> CodeWord, int k, int de
                 std::vector<std::vector<double>> FuncG(decod_num);
                 for (int i = 0; i < decod_num; i++) {
                     FuncG[i] = FuncGVectors(a[i], b[i], CurUCap[i]);
-                } 
-
-                for (int i = 0; i < decod_num; i++) {
                     std::copy(FuncG[i].begin(), FuncG[i].end(), L[i][depth].begin() + length_node*node);
-                }
+                } 
                 states[CurNode] = 2;
             }
             else  {
@@ -527,8 +525,6 @@ std::vector<std::vector<int>> SCList(std::vector<double> CodeWord, int k, int de
                 std::vector<std::vector<int>> GetUcap(decod_num);
                 for (int i = 0; i < decod_num; i++) {
                     GetUcap[i] = SumTwoVectors(Ucap_left[i], Ucap_right[i]);
-                } 
-                for (int i = 0; i < decod_num; i++) {
                     std::copy(GetUcap[i].begin(), GetUcap[i].end(), 
                         Ucap[i][depth].begin() + length_node*node);
                 }        
@@ -542,7 +538,7 @@ std::vector<std::vector<int>> SCList(std::vector<double> CodeWord, int k, int de
     for (int j = 0; j < decod_num; j++) {
         std::vector<int> temp;
         for (int i = 0; i < Ucap[j][depth_max].size(); i++) {
-            if (!std::binary_search(RelSeq.begin(), RelSeq.begin() + N - k, i)) {
+            if (IsFrozen[i] == 0) {
                 temp.push_back(Ucap[j][depth_max][i]);
             }
         }
@@ -563,4 +559,608 @@ std::vector<int> Msg_Correct_CRC(const std::vector<std::vector<int>>& PosibleWor
 }
 
 
-std::vector<int> Fast_SCL(std::vector<double> CodeWord, int k);
+bool AllEquals(const std::vector<int>& vec, const int& left,const int& right, const int& element) {
+    bool flag = true;
+    for (int i = left; i < right; i++) {
+        if (vec[i] != element) {
+            flag = false;
+            break;
+        }
+    }
+    return flag;
+}
+
+
+std::vector<int> least_reliable_bit(const vector3d_double& L, const int& depth, const int& length_node,  
+                                    const int& layer, const int& node, const int& num_least_bits) {
+    std::vector<int> result;
+    std::vector<double> copy_vector(length_node);
+
+    std::copy(L[layer][depth].begin() + node * length_node,
+              L[layer][depth].begin() + (node + 1) * length_node, copy_vector.begin());
+
+
+    std::sort(copy_vector.begin(), copy_vector.end(), [](double i, double j) { return std::abs(i) < std::abs(j); });
+    int min_size = std::min(num_least_bits, (int)copy_vector.size());
+    copy_vector.resize(min_size);
+    for (auto num : copy_vector) {
+        for (int i = node*length_node; i < (node + 1)*length_node; i++) {
+            if (num == L[layer][depth][i]) {
+                result.push_back(i % length_node);
+            }
+        }
+    }
+    return result;
+}
+
+
+
+std::vector<std::vector<int>> Fast_SCL(const std::vector<double>& CodeWord,const int& k, const int& decod_num) {
+    int N = CodeWord.size();
+    int depth_max = (int)log2(N);
+
+    std::vector<int> RelSeq = ReliabilitySequenceForN(N);
+    std::vector<int> IsFrozen = IsFrozenNode(RelSeq, N - k);
+    std::vector<std::vector<int>> Answers(decod_num, std::vector<int> (N, 0));
+
+    std::vector<int> states(2*N-1, 0);
+
+    vector3d_double L(decod_num, std::vector<std::vector<double>>
+            (depth_max+1, CodeWord));
+
+    vector3d_int Ucap(decod_num, std::vector<std::vector<int>>
+            (depth_max + 1, std::vector<int> (N, 0)));
+
+    std::vector<double> PathMetric_old(decod_num, std::numeric_limits<double>::max());
+    std::vector<double> PathMetric_new(decod_num, std::numeric_limits<double>::max());
+    std::vector<double> PathMetric(decod_num, std::numeric_limits<double>::max());
+    std::vector<double> DMetric(decod_num);
+    PathMetric[0] = 0;
+
+    int depth = 0, node = 0;
+    int flag = 0; // 0 means travel is not ended, 1 travel is ended
+
+
+    while (flag == 0) {
+        int CurNode = pow(2, depth) - 1 + node;
+        if (depth == depth_max) { // if we are in leaf
+            for (int i = 0; i < decod_num; i++) {
+                DMetric[i] = L[i][depth][node];
+            }
+            if (IsFrozen[node] == 1) { // if bit is frozen
+                for (int i = 0; i < decod_num; i++) {
+                    Ucap[i][depth][node] = 0;
+                }
+                for (int i = 0; i < decod_num; i++) {
+                    if (DMetric[i] < 0) {
+                        if (PathMetric[i] != std::numeric_limits<double>::max()) {
+                            PathMetric[i] = PathMetric[i] - DMetric[i];
+                        }
+                    }
+                }
+            }
+            else {
+                // make vector of pos and update pm
+                std::vector<bool> Dec(decod_num, false);
+                std::vector<bool> Pos(decod_num, false);
+                for (int i = 0; i < decod_num; i++) {
+                    Dec[i] = (DMetric[i] < 0);
+                }
+                PathMetric_old = PathMetric;
+                PathMetric_new = PathMetric;
+                for (int i = 0; i < decod_num; i++) {
+                    if (PathMetric_new[i] != std::numeric_limits<double>::max()) {
+                        PathMetric_new[i] += std::abs(DMetric[i]);
+                    }
+                }
+                std::vector<double> ConcVector(PathMetric_old);
+                std::vector<int> Positions(decod_num);
+                ConcVector.insert(ConcVector.end(), PathMetric_new.begin(), PathMetric_new.end());
+                std::map <double, int> my_map;
+                for (int i = 0; i < ConcVector.size(); i++) {
+                    my_map[ConcVector[i]] = i;
+                }
+
+                int cnt = 0;
+                for(const auto& num : my_map) {
+                    if (cnt >= decod_num) {
+                        break;
+                    }
+                    PathMetric[cnt] = num.first;
+                    Positions[cnt] = num.second;
+                    cnt++;
+                }
+
+                for (int i = 0; i < decod_num; i++) {
+                    Pos[i] = (Positions[i] >= decod_num);
+                    if (Pos[i]) {
+                        Positions[i] -= decod_num;
+                    }
+                }
+
+                std::vector<bool> CopyDec(Dec);
+
+                for(int i = 0; i < decod_num; i++) {
+                    Dec[i] = CopyDec[Positions[i]];
+                    if (Pos[i]) {
+                        Dec[i] = !Dec[i];
+                    }
+                }
+
+                vector3d_double L_copy(decod_num);
+                vector3d_int Ucap_copy(decod_num);
+
+                for  (int i = 0; i < decod_num; i++) {
+                    L_copy[i] = L[i];
+                    Ucap_copy[i] = Ucap[i];
+                }
+
+                for (int i = 0; i < decod_num; i++) {
+                    L[i] = L_copy[Positions[i]];
+                    Ucap[i] = Ucap_copy[Positions[i]];
+                }
+
+                for (int i = 0; i < decod_num; i++) {
+                    Ucap[i][depth][node] = Dec[i];
+                }
+            }
+            if (node == N - 1) {
+                flag = 1;
+            } else {
+                node /= 2; depth--;
+            }
+        }
+        else { // if we are not in leaf
+            if (states[CurNode] == 0) {
+                int length_node = pow(2, depth_max - depth);
+                if (AllEquals(IsFrozen, node*length_node, (node + 1)*length_node, 1)) {
+                    // Rate0
+                    // states[CurNode] = 2
+                    for (int i = 0; i < decod_num; i++) {
+                        double sum = 0.0;
+                        for (int j = node*length_node; j < (node + 1)*length_node; j++) {
+                            if (L[i][depth][j] < 0.0) {
+                                sum += L[i][depth][j];
+                            }
+                        }
+                        if (PathMetric[i] != std::numeric_limits<double>::max()) {
+                            PathMetric[i] = PathMetric[i] - sum;
+                        }
+                    }
+
+                    if (node == std::pow(2, depth) - 1) {
+                        flag = 1;
+                    }
+                    node /= 2; depth--;
+                    states[CurNode] = 3;
+
+                }
+                else if (AllEquals(IsFrozen, node*length_node, (node + 1)*length_node, 0)) {
+                    //Rate1
+                    std::vector<std::vector<bool>> Dec(decod_num * 4, std::vector<bool> (length_node, false));
+                    std::vector<bool> Pos(decod_num, false);
+                    std::vector<std::vector<int>> two_index(decod_num, std::vector<int>(2, 0));
+                    std::vector<std::vector<int>> G = PolarTransform(depth_max - depth);
+
+
+                    for (int i = 0; i < decod_num; i++) {
+                        two_index[i] = least_reliable_bit(L, depth, length_node, i, node, 2);
+                    }
+
+
+                    for (int i = 0; i < decod_num; i++) {
+                        std::vector<int> dec_0(length_node, 0);
+                        for (int j = node*length_node; j < (node+1)*length_node; j++) {
+                            if (L[i][depth][j] < 0) {
+                                dec_0[j - node*length_node] = 1;
+                            }
+                        }
+                        for (int j = 0; j < 4; j++) {
+                            std::copy(dec_0.begin(), dec_0.end(), Dec[4*i+j].begin());
+                        }
+
+                        Dec[4*i+1][two_index[i][0]] = !Dec[4*i+1][two_index[i][0]];
+                        Dec[4*i+2][two_index[i][1]] = !Dec[4*i+2][two_index[i][1]];
+                        Dec[4*i+3][two_index[i][0]] = !Dec[4*i+3][two_index[i][0]];
+                        Dec[4*i+3][two_index[i][1]] = !Dec[4*i+3][two_index[i][1]];
+
+                    }
+                    std::vector<double> PathMetric_4(4 * decod_num, 0.0);
+
+                    for (int i = 0; i < decod_num; i++) {
+                        for (int j = 0; j < 4; j++) {
+                            PathMetric_4[4*i+j] = PathMetric[i];
+                        }
+                        PathMetric_4[4*i+1] += std::abs(L[i][depth][length_node * node + two_index[i][0]]);
+                        PathMetric_4[4*i+2] += std::abs(L[i][depth][length_node * node + two_index[i][1]]);
+                        PathMetric_4[4*i+3] += std::abs(L[i][depth][length_node * node + two_index[i][0]]);
+                        PathMetric_4[4*i+3] += std::abs(L[i][depth][length_node * node + two_index[i][1]]);
+                    }
+
+                    std::vector<int> Positions(decod_num);
+                    std::vector<std::vector<int>> Decision(decod_num, std::vector<int> (length_node, 0));
+                    std::map <double, int> my_map;
+                    for (int i = 0; i < PathMetric_4.size(); i++) {
+                        my_map[PathMetric_4[i]] = i;
+                    }
+
+                    int cnt = 0;
+                    for(const auto& num : my_map) {
+                        if (cnt >= decod_num) {
+                            break;
+                        }
+                        PathMetric[cnt] = num.first;
+                        Positions[cnt] = num.second;
+                        cnt++;
+                    }
+
+                    cnt = 0;
+                    for (const auto& pos : Positions) {
+                        std::copy(Dec[pos].begin(), Dec[pos].end(), Decision[cnt].begin());
+                        cnt++;
+                    }
+
+                    for (auto& pos : Positions) {
+                        pos = pos / 4;
+                    }
+
+                    vector3d_double L_copy(decod_num);
+                    vector3d_int Ucap_copy(decod_num);
+                    std::vector<std::vector<int>> copy_answers(decod_num);
+
+                    for  (int i = 0; i < decod_num; i++) {
+                        L_copy[i] = L[i];
+                        Ucap_copy[i] = Ucap[i];
+                        copy_answers[i] = Answers[i];
+                    }
+
+                    for (int i = 0; i < decod_num; i++) {
+                        L[i] = L_copy[Positions[i]];
+                        Ucap[i] = Ucap_copy[Positions[i]];
+                        Answers[i] = copy_answers[Positions[i]];
+                    }
+
+                    for (int i = 0; i < decod_num; i++) {
+                        std::copy(Decision[i].begin(), Decision[i].end(),
+                                  Ucap[i][depth].begin() + length_node * node);
+                        Decision[i] = PolarEncoding(Decision[i], G);
+                        std::copy(Decision[i].begin(), Decision[i].end(),
+                                                        Answers[i].begin() + node * length_node);
+
+                    }
+
+
+
+
+
+                    if (node == std::pow(2, depth) - 1) {
+                        flag = 1;
+                    }
+                    node /= 2; depth--;
+                    states[CurNode] = 3;
+
+                }
+                else if (AllEquals(IsFrozen, node*length_node, (node + 1)*length_node - 1, 1) &&
+                         IsFrozen[(node + 1)*length_node - 1] == 0) {
+                    //Repetition
+
+                    std::vector<double> DoublePathMetric(2 * PathMetric.size());
+                    std::copy(PathMetric.begin(), PathMetric.end(), DoublePathMetric.begin());
+                    std::copy(PathMetric.begin(), PathMetric.end(), DoublePathMetric.begin() + PathMetric.size());
+                    std::vector<std::vector<int>> G = PolarTransform(depth_max - depth);
+
+                    for (int i = 0; i < decod_num; i++) {
+                        for (int j = length_node * node; j < (node + 1)*length_node; j++) {
+                            if (L[i][depth][j] < 0.0) {
+                                DoublePathMetric[i] -= L[i][depth][j];
+                            }
+                        }
+                    }
+
+                    for (int i = decod_num; i < 2 * decod_num; i++) {
+                        for (int j = length_node * node; j < (node + 1)*length_node; j++) {
+                            if (L[i - decod_num][depth][j] >= 0.0) {
+                                DoublePathMetric[i] += L[i - decod_num][depth][j];
+                            }
+                        }
+                    }
+
+                    std::vector<int> Positions(decod_num);
+                    std::map <double, int> my_map;
+                    for (int i = 0; i < DoublePathMetric.size(); i++) {
+                        my_map[DoublePathMetric[i]] = i;
+                    }
+
+                    int cnt = 0;
+                    for(const auto& num : my_map) {
+                        if (cnt >= decod_num) {
+                            break;
+                        }
+                        PathMetric[cnt] = num.first;
+                        Positions[cnt] = num.second;
+                        cnt++;
+                    }
+
+                    std::vector<bool> Dec(decod_num, false);
+                    for (int i = 0; i < decod_num; i++) {
+                        Dec[i] = (Positions[i] >= decod_num);
+                        if (Dec[i]) {
+                            Positions[i] -= decod_num;
+                        }
+                    }
+
+                    vector3d_double L_copy(decod_num);
+                    vector3d_int Ucap_copy(decod_num);
+                    std::vector<std::vector<int>> copy_answers(decod_num);
+
+                    for  (int i = 0; i < decod_num; i++) {
+                        L_copy[i] = L[i];
+                        Ucap_copy[i] = Ucap[i];
+                        copy_answers[i] = Answers[i];
+                    }
+
+                    for (int i = 0; i < decod_num; i++) {
+                        L[i] = L_copy[Positions[i]];
+                        Ucap[i] = Ucap_copy[Positions[i]];
+                        Answers[i] = copy_answers[Positions[i]];
+                    }
+
+                    std::vector<std::vector<int>> Decision(decod_num, std::vector<int> (length_node, 0));
+
+                    for  (int i = 0; i < decod_num; i++) {
+                        for (int j = node * length_node; j < (node+1)*length_node; j++) {
+                            Decision[i][j - node * length_node] = Dec[i];
+                            Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                        }
+                        Decision[i] = PolarEncoding(Decision[i], G);
+                        std::copy(Decision[i].begin(), Decision[i].end(),
+                                  Answers[i].begin() + node * length_node);
+                    }
+
+                    if (node == std::pow(2, depth) - 1) {
+                        break;
+                    }
+
+
+                    node /= 2; depth--;
+                    states[CurNode] = 3;
+
+                }
+                else if (IsFrozen[node*length_node] == 1 &&
+                         AllEquals(IsFrozen, node*length_node + 1, (node + 1)*length_node, 0) )   {
+                    // SPC
+                    std::vector<std::vector<bool>> Dec(decod_num * 8, std::vector<bool> (length_node, false));
+                    std::vector<double> PathMetric_8(8 * decod_num, 0.0);
+                    std::vector<bool> Pos(decod_num, false);
+                    std::vector<std::vector<int>> four_index(decod_num, std::vector<int>(4, 0));
+                    std::vector<std::vector<int>> G = PolarTransform(depth_max - depth);
+
+                    for (int i = 0; i < decod_num; i++) {
+                        four_index[i] = least_reliable_bit(L, depth, length_node, i, node, 4);
+                    }
+
+
+                    for (int i = 0; i < decod_num; i++) {
+                        std::vector<int> dec_0(length_node, 0);
+                        for (int j = node*length_node; j < (node+1)*length_node; j++) {
+                            if (L[i][depth][j] < 0) {
+                                dec_0[j - node*length_node] = 1;
+                            }
+                        }
+                        int parity=0;
+                        for (int j = 0; j < length_node; j++) {
+                            parity ^= dec_0[j];
+                        }
+
+                        int one_index = four_index[i][0];
+                        dec_0[one_index] ^= parity;
+
+                        for (int j = 0; j < 8; j++) {
+                            std::copy(dec_0.begin(), dec_0.end(), Dec[8*i+j].begin());
+                            PathMetric_8[8*i+j] = PathMetric[i] +
+                                    parity * std::abs(L[i][depth][length_node * node + four_index[i][0]]);
+                        }
+
+                        Dec[8*i+1][four_index[i][0]] = !Dec[8*i+1][four_index[i][0]];
+                        Dec[8*i+1][four_index[i][1]] = !Dec[8*i+1][four_index[i][1]];
+
+                        Dec[8*i+2][four_index[i][0]] = !Dec[8*i+2][four_index[i][0]];
+                        Dec[8*i+2][four_index[i][2]] = !Dec[8*i+2][four_index[i][2]];
+
+                        Dec[8*i+3][four_index[i][0]] = !Dec[8*i+3][four_index[i][0]];
+                        Dec[8*i+3][four_index[i][3]] = !Dec[8*i+3][four_index[i][3]];
+
+                        Dec[8*i+4][four_index[i][1]] = !Dec[8*i+4][four_index[i][1]];
+                        Dec[8*i+4][four_index[i][2]] = !Dec[8*i+4][four_index[i][2]];
+
+                        Dec[8*i+5][four_index[i][1]] = !Dec[8*i+5][four_index[i][1]];
+                        Dec[8*i+5][four_index[i][3]] = !Dec[8*i+5][four_index[i][3]];
+
+                        Dec[8*i+6][four_index[i][2]] = !Dec[8*i+6][four_index[i][2]];
+                        Dec[8*i+6][four_index[i][3]] = !Dec[8*i+6][four_index[i][3]];
+
+                        Dec[8*i+7][four_index[i][0]] = !Dec[8*i+7][four_index[i][0]];
+                        Dec[8*i+7][four_index[i][1]] = !Dec[8*i+7][four_index[i][1]];
+                        Dec[8*i+7][four_index[i][2]] = !Dec[8*i+7][four_index[i][2]];
+                        Dec[8*i+7][four_index[i][3]] = !Dec[8*i+7][four_index[i][3]];
+
+
+
+                        PathMetric_8[8*i+1] += (1-parity) * std::abs(L[i][depth][length_node * node + four_index[i][0]]);
+                        PathMetric_8[8*i+1] += std::abs(L[i][depth][length_node * node + four_index[i][1]]);
+
+                        PathMetric_8[8*i+2] += (1-parity) * std::abs(L[i][depth][length_node * node + four_index[i][0]]);
+                        PathMetric_8[8*i+2] += std::abs(L[i][depth][length_node * node + four_index[i][2]]);
+
+                        PathMetric_8[8*i+3] += (1-parity) * std::abs(L[i][depth][length_node * node + four_index[i][0]]);
+                        PathMetric_8[8*i+3] += std::abs(L[i][depth][length_node * node + four_index[i][3]]);
+
+                        PathMetric_8[8*i+4] += std::abs(L[i][depth][length_node * node + four_index[i][1]]);
+                        PathMetric_8[8*i+4] += std::abs(L[i][depth][length_node * node + four_index[i][2]]);
+
+                        PathMetric_8[8*i+5] += std::abs(L[i][depth][length_node * node + four_index[i][1]]);
+                        PathMetric_8[8*i+5] += std::abs(L[i][depth][length_node * node + four_index[i][3]]);
+
+                        PathMetric_8[8*i+6] += std::abs(L[i][depth][length_node * node + four_index[i][2]]);
+                        PathMetric_8[8*i+6] += std::abs(L[i][depth][length_node * node + four_index[i][3]]);
+
+                        PathMetric_8[8*i+7] += (1-parity) * std::abs(L[i][depth][length_node * node + four_index[i][0]]);
+                        PathMetric_8[8*i+7] += std::abs(L[i][depth][length_node * node + four_index[i][1]]);
+                        PathMetric_8[8*i+7] += std::abs(L[i][depth][length_node * node + four_index[i][2]]);
+                        PathMetric_8[8*i+7] += std::abs(L[i][depth][length_node * node + four_index[i][3]]);
+                    }
+
+                    std::vector<int> Positions(decod_num);
+                    std::vector<std::vector<int>> Decision(decod_num, std::vector<int> (length_node, 0));
+                    std::map <double, int> my_map;
+                    for (int i = 0; i < PathMetric_8.size(); i++) {
+                        my_map[PathMetric_8[i]] = i;
+                    }
+
+                    int cnt = 0;
+                    for(const auto& num : my_map) {
+                        if (cnt >= decod_num) {
+                            break;
+                        }
+                        PathMetric[cnt] = num.first;
+                        Positions[cnt] = num.second;
+                        cnt++;
+                    }
+
+                    cnt = 0;
+                    for (const auto& pos : Positions) {
+                        std::copy(Dec[pos].begin(), Dec[pos].end(), Decision[cnt].begin());
+                        cnt++;
+                    }
+
+                    for (auto& pos : Positions) {
+                        pos = pos / 8;
+                    }
+
+                    vector3d_double L_copy(decod_num);
+                    vector3d_int Ucap_copy(decod_num);
+                    std::vector<std::vector<int>> copy_answers(decod_num);
+
+                    for  (int i = 0; i < decod_num; i++) {
+                        L_copy[i] = L[i];
+                        Ucap_copy[i] = Ucap[i];
+                        copy_answers[i] = Answers[i];
+                    }
+
+                    for (int i = 0; i < decod_num; i++) {
+                        L[i] = L_copy[Positions[i]];
+                        Ucap[i] = Ucap_copy[Positions[i]];
+                        Answers[i] = copy_answers[Positions[i]];
+                    }
+
+                    for (int i = 0; i < decod_num; i++) {
+                        std::copy(Decision[i].begin(), Decision[i].end(),
+                                  Ucap[i][depth].begin() + length_node * node);
+                        Decision[i] = PolarEncoding(Decision[i], G);
+                        std::copy(Decision[i].begin(), Decision[i].end(),
+                                  Answers[i].begin() + node * length_node);
+
+                    }
+
+                    if (node == std::pow(2, depth) - 1) {
+                        flag = 1;
+                    }
+
+                    node /= 2; depth--;
+                    states[CurNode] = 3;
+                }
+                else {
+                    std::vector<std::vector<double>>
+                            node_parent (decod_num, std::vector<double>(length_node)),
+                            a(decod_num, std::vector<double>(length_node / 2)),
+                            b(decod_num, std::vector<double>(length_node / 2));
+
+                    for (int i = 0; i < decod_num; i++ ) {
+                        std::copy(L[i][depth].begin() + length_node*node,
+                                  L[i][depth].begin() + length_node *(node + 1), node_parent[i].begin());
+                        std::copy(node_parent[i].begin(), node_parent[i].begin()+length_node/2, a[i].begin() );
+                        std::copy(node_parent[i].begin()+ length_node/2, node_parent[i].end(), b[i].begin());
+                    }
+                    depth++; node *= 2; length_node /= 2;
+                    std::vector<std::vector<double>> FuncF(decod_num);
+                    for (int i = 0; i < decod_num; i++) {
+                        FuncF[i] = FuncFVectors(a[i], b[i]);
+                        std::copy(FuncF[i].begin(), FuncF[i].end(),
+                                  L[i][depth].begin() + length_node*node);
+                    }
+                    states[CurNode] = 1;
+                }
+            }
+            else if (states[CurNode] == 1) {
+                int length_node = pow(2, depth_max - depth);
+                std::vector<std::vector<double>>
+                        node_parent(decod_num, std::vector<double>(length_node)),
+                        a(decod_num, std::vector<double>(length_node / 2)),
+                        b(decod_num, std::vector<double>(length_node / 2));
+
+                for (int i = 0; i < decod_num; i++) {
+                    std::copy(L[i][depth].begin() + length_node*node,
+                              L[i][depth].begin() + length_node *(node + 1), node_parent[i].begin());
+                    std::copy(node_parent[i].begin(), node_parent[i].begin()+length_node/2, a[i].begin() );
+                    std::copy(node_parent[i].begin()+ length_node/2, node_parent[i].end(), b[i].begin());
+                }
+
+                int left_child_depth = depth + 1;
+                int left_child_node = node * 2;
+                int left_length_node =  length_node / 2;
+                std::vector<std::vector<double>> CurUCap(decod_num, std::vector<double>(left_length_node));
+
+                for (int i = 0; i < decod_num; i++) {
+                    std::copy(Ucap[i][left_child_depth].begin() + left_child_node*left_length_node,
+                              Ucap[i][left_child_depth].begin() + left_length_node*(left_child_node+1), CurUCap[i].begin());
+                }
+
+                depth++; node = node * 2 + 1; length_node /= 2;
+                std::vector<std::vector<double>> FuncG(decod_num);
+                for (int i = 0; i < decod_num; i++) {
+                    FuncG[i] = FuncGVectors(a[i], b[i], CurUCap[i]);
+                    std::copy(FuncG[i].begin(), FuncG[i].end(), L[i][depth].begin() + length_node*node);
+                }
+                states[CurNode] = 2;
+            }
+            else if (states[CurNode] == 2){
+                int length_node = pow(2, depth_max - depth);
+                int gen_length_node = length_node / 2, gen_depth = depth + 1;
+                int left_node = 2 * node, right_node = 2 * node + 1;
+                std::vector<std::vector<int>>
+                        Ucap_left (decod_num, std::vector<int>(gen_length_node)),
+                        Ucap_right(decod_num, std::vector<int>(gen_length_node));
+
+                for (int i = 0; i < decod_num; i++) {
+                    std::copy(Ucap[i][gen_depth].begin() + gen_length_node*left_node,
+                              Ucap[i][gen_depth].begin() + gen_length_node*(left_node + 1),
+                              Ucap_left[i].begin());
+                    std::copy(Ucap[i][gen_depth].begin() + gen_length_node*right_node,
+                              Ucap[i][gen_depth].begin() + gen_length_node*(right_node + 1),
+                              Ucap_right[i].begin());
+                }
+
+                std::vector<std::vector<int>> GetUcap(decod_num);
+                for (int i = 0; i < decod_num; i++) {
+                    GetUcap[i] = SumTwoVectors(Ucap_left[i], Ucap_right[i]);
+                    std::copy(GetUcap[i].begin(), GetUcap[i].end(),
+                              Ucap[i][depth].begin() + length_node*node);
+                }
+                node /= 2; depth--;
+            }
+        }
+    }
+
+    for (int i = 0; i < decod_num; i++) {
+        std::vector<int> temp;
+        for (int j = 0; j < N; j++) {
+            if (IsFrozen[j] == 0) {
+                temp.push_back(Answers[i][j]);
+            } 
+        }
+        Answers[i] = temp;
+    }
+
+
+    return Answers;
+}
