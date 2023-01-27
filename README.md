@@ -22,6 +22,7 @@ cd build
 Also, use CMake to configure the project and make to build the project.
 
 cmake ..
+
 make
 
 # Files of project
