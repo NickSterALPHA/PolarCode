@@ -1,29 +1,52 @@
 # Info
-Implementation decoding algorithms of Polar Code
+Implementation decoding algorithms of Polar Code. There are 3 type of decoders: SC, SCL, Fast SCL. 
 
-# Headers in Project
+# How to download 
 
-PolarCode.h - list of function, which helps to decode/encode msg
+Firstly, you should clone this repository 
 
-Simulation.h - list of function, which helps to simulate channel 
+git clone https://github.com/NickSterALPHA/PolarCode.git
 
-# How to install and Open Project
+Next step, in directory PolarCode, you should run requirements.sh. This bash script downloads all dependencies
 
-1) git clone [our repository]
+./requirements.sh
 
-2) cd build
+# Build the project
 
-3) cmake ..
+You should create a folder to build a project
 
-4) cmake --build .
+mkdir build
 
-5) cd Debug
+cd build
 
-There are two applications.
+Also, use CMake to configure the project and make to build the project.
 
-a) ExampleEXE.exe - is console aplication, which helps to understand, how functions works
+cmake ..
+make
 
-b) MainAppEXE.exe - is form aplication, which builds graphs for decoders
+# Files of project
 
-6) .\MainAppEXE.exe [or .\ExampleEXE.exe ]
+Testing -  application that helps to understand how a functions work
+
+![Output of testing application](./img/testing_example.png)
+
+Graph - application  that plots the P(SNR) function, P(t) is a probability function, SNR - signal to noise 
+
+Example of our interface:
+
+![Interface of application](/img/interface_example.png)
+
+Example of graphics
+
+[Plot of function](/img/plot.png)
+
+Time - application illustrating information about which algorithm is faster
+
+[Time of algorithms](/img/time.png)
+
+# References 
+
+In the implementation of the algorithms, we relied on scientific articles:
+
+https://ieeexplore.ieee.org/document/8369002
 

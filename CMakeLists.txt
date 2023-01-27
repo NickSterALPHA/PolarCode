@@ -2,18 +2,6 @@ cmake_minimum_required(VERSION 3.8)
 
 project(PolarCodeDecoding)
 
-set(SFML_STATIC_LIBRARIES TRUE)
-set(SFML_DIR ${CMAKE_SOURCE_DIR}/lib/SFML/lib/cmake/SFML)
-
-
-find_package(SFML 2.5 COMPONENTS system window graphics network audio REQUIRED)
-
-if (SFML_FOUND)
-    add_executable(MainAppEXE ${PROJECT_SOURCE_DIR}/src/MainApp.cpp)
-    target_include_directories(MainAppEXE PUBLIC ${PROJECT_SOURCE_DIR}/lib/SFML/include/SFML) 
-    target_link_libraries(MainAppEXE PRIVATE sfml-graphics sfml-audio)
-endif (SFML_FOUND)
-
 add_library(PolarCodeLib 
             STATIC
             src/PolarCode/PolarCode.cpp)
@@ -22,16 +10,31 @@ add_library(SimulationLib
             STATIC
             src/Simulation/Simulation.cpp)
 
-target_include_directories(PolarCodeLib
-                           PUBLIC
-                           ${PROJECT_SOURCE_DIR}/include)
+target_include_directories(PolarCodeLib PUBLIC include)
 
-target_include_directories(SimulationLib
-                           PUBLIC
-                           ${PROJECT_SOURCE_DIR}/include)
+target_include_directories(SimulationLib PUBLIC include)
 
-add_executable(TestingEXE ${PROJECT_SOURCE_DIR}/src/Testing.cpp)
+find_package(Python3 COMPONENTS Intrepreter Development NumPy)
 
-target_link_libraries(TestingEXE 
+add_executable(Time src/time.cpp)
+target_include_directories(Time PUBLIC ${Python3_INCLUDE_DIRS} include)
+target_link_libraries(Time ${Python3_LIBRARIES} PolarCodeLib SimulationLib)
+
+add_executable(Testing src/Testing.cpp)
+
+target_link_libraries(Testing 
                        PRIVATE PolarCodeLib
                        PRIVATE SimulationLib)
+
+
+find_package(FLTK REQUIRED NO_MODULE)
+                        
+add_executable(Graph src/Graph.cpp)
+
+target_include_directories(Graph PUBLIC ${FLTK_INCLUDE_DIRS} ${Python3_INCLUDE_DIRS} include)
+                        
+target_link_libraries(Graph fltk  
+                            ${Python3_LIBRARIES}
+                            PolarCodeLib
+                            SimulationLib)
+

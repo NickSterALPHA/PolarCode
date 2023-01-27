@@ -14,6 +14,9 @@ void PrintVector(const std::vector<T>& v) {
     std::cout << std::endl;
     std::cout << "----------------------------------------------\n";
 }
+
+
+
 int main() {
 
 
@@ -48,17 +51,13 @@ int main() {
     std::cout << "Result of SC decoding : ";
     PrintVector<int>(SC_msg);
 
-    if (SC_msg == message) {
+    int errors = NumErrors(SC_msg, message);
+
+    if (errors == 0) {
         std::cout << "The decoded message is identical to the initial message"<< std::endl;
     } else {
-        int count_errors = 0;
-        for(int i = 0; i < SC_msg.size(); i++) {
-            if (SC_msg[i] != message[i]) {
-                count_errors++;
-            }
-        }
         std::cout << "The decoded message does not match the initial message" << std::endl;
-        std::cout << "There are " << count_errors << " errors" << std::endl;
+        std::cout << "There are " << errors << " errors" << std::endl;
     }
 
     auto timeSC = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin);
@@ -71,7 +70,7 @@ int main() {
     int size_of_message = message.size();
 
     std::cout << "CRC - Code for message: " << std::endl;
-    std::vector<int> crc_code = Get_CRC_8(message);
+    std::vector<int> crc_code = Get_CRC(message, 8);
     PrintVector<int>(crc_code);
     std::cout << "Message with CRC - Code " << std::endl;
     std::vector<int> msg_crc(message);
@@ -101,7 +100,7 @@ int main() {
     PrintVector<double>(ReceivedWord);
 
     begin = std::chrono::steady_clock::now();
-    std::vector<std::vector<int>> PosibleWords = SCList(ReceivedWord, k, 40);
+    std::vector<std::vector<int>> PosibleWords = SCList(ReceivedWord, k, 16);
     end = std::chrono::steady_clock::now();
 
     timeSC = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin);
@@ -116,25 +115,20 @@ int main() {
     std::cout << "----------------------------------------------\n";
     
 
-    std::cout << "There was choosen only one MSG WITH CRC: ";
-    std::vector<int> Msg_CRC_SCL_Decoding = Msg_Correct_CRC(PosibleWords);
+    std::cout << "There was choosen only one MSG WITHOUT CRC: ";
+    std::vector<int> Msg_CRC_SCL_Decoding = Msg_Correct_CRC(PosibleWords, 8);
     std::vector<int> Msg_SCL_Decoding;
     Msg_SCL_Decoding.insert(Msg_SCL_Decoding.begin(), Msg_CRC_SCL_Decoding.begin(), 
                                                       Msg_CRC_SCL_Decoding.begin() + size_of_message);
 
     PrintVector<int>(Msg_SCL_Decoding);
 
-    if (Msg_SCL_Decoding == message) {
+    errors = NumErrors(Msg_SCL_Decoding, message);
+    if (errors == 0) {
          std::cout << "The decoded message is identical to the initial message"<< std::endl;
     } else {
-        int count_errors = 0;
-        for(int i = 0; i < Msg_SCL_Decoding.size(); i++) {
-            if (Msg_SCL_Decoding[i] != message[i]) {
-                count_errors++;
-            }
-        }
         std::cout << "The decoded message does not match the initial message" << std::endl;
-        std::cout << "There are " << count_errors << " errors" << std::endl;
+        std::cout << "There are " << errors << " errors" << std::endl;
     }
 
     std::cout << "----------------------------------------------\n";
@@ -147,7 +141,7 @@ int main() {
     size_of_message = message.size();
 
     std::cout << "CRC - Code for message: " << std::endl;
-    crc_code = Get_CRC_8(message);
+    crc_code = Get_CRC(message, 8);
     PrintVector<int>(crc_code);
     std::cout << "Message with CRC - Code " << std::endl;
     msg_crc = message;
@@ -178,7 +172,7 @@ int main() {
 
 
     begin = std::chrono::steady_clock::now();
-    PosibleWords = Fast_SCL(ReceivedWord, k, 40);
+    PosibleWords = Fast_SCL(ReceivedWord, k, 16);
     end = std::chrono::steady_clock::now();
 
     timeSC = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin);
@@ -193,28 +187,22 @@ int main() {
     std::cout << "----------------------------------------------\n";
     
 
-    std::cout << "There was choosen only one MSG WITH CRC: ";
-    std::vector<int> Msg_CRC = Msg_Correct_CRC(PosibleWords);
+    std::cout << "There was choosen only one MSG WITHOUT CRC: ";
+    std::vector<int> Msg_CRC = Msg_Correct_CRC(PosibleWords, 8);
     std::vector<int> Msg_Without_CRC;
     Msg_Without_CRC.insert(Msg_Without_CRC.begin(), Msg_CRC.begin(), 
                                                       Msg_CRC.begin() + Msg_CRC.size() - 8);
 
     PrintVector<int>(Msg_Without_CRC);
 
-    if (Msg_Without_CRC == message) {
+    errors = NumErrors(Msg_Without_CRC, message);
+
+    if (errors == 0) {
          std::cout << "The decoded message is identical to the initial message"<< std::endl;
     } else {
-        int count_errors = 0;
-        int min_size = std::min((int)Msg_Without_CRC.size(), (int)message.size());
-        for(int i = 0; i < min_size; i++) {
-            if (Msg_Without_CRC[i] != message[i]) {
-                count_errors++;
-            }
-        }
         std::cout << "The decoded message does not match the initial message" << std::endl;
-        std::cout << "There are " << count_errors << " errors" << std::endl;
+        std::cout << "There are " << errors << " errors" << std::endl;
     }
-
 
 
 

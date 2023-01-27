@@ -1,3 +1,4 @@
+
 #pragma once
 #include <vector>
 #include <map>
@@ -45,29 +46,43 @@ std::vector<int> SumTwoVectors(const std::vector<int>& first,
 // Decoding of Polar code with SC method
 std::vector<int> SC_Decoding(const std::vector<double>& CodeWord, const int& k);
 
+//Generate Polynom of degree CRC_size
+std::vector<int> GeneratePolynom(int CRC_size);
+
 // Generate all posible vectors with values from 0 to 255 in binary representation
-std::vector<std::vector<int>> GenerateVectors();
+// input args : CRC_size - size of CRC could be 8, 16, 32
+std::vector<std::vector<int>> GenerateVectors(int CRC_size);
 
 // left shift vector by one position
 void LShiftVector(std::vector<int> &vec);
 
+// left shift copy of vector by offset and return it
+std::vector<int> LShiftVectorOffset(std::vector<int> vec, int offset);
+
+// right shift vector by one position
+void RShiftVector(std::vector<int> &vec);
+
+// left shift copy of vector by offset and return it
+std::vector<int> RShiftVectorOffset(std::vector<int> vec, int offset); 
+
 // xor two bytes(vectors)
 std::vector<int> operator^ (const std::vector<int>& first,const std::vector<int>& second);
 
-// table with finished xor results
-std::map<std::vector<int>, std::vector<int>> GenerateTable(const std::vector<int>& Gpolynom);
+// table with finished CRC results
+std::map<std::vector<int>, std::vector<int>> GenerateTable(const std::vector<int>& Gpolynom, 
+                                                           int CRC_size);
 
 // return crc - code for message 
-std::vector<int> Get_CRC_8(std::vector<int> message);
+std::vector<int> Get_CRC(std::vector<int> message, int CRC_size);
 
 // check: CRC-code corresponds to this message ? 
-bool Check_CRC_8(std::vector<int> message);
+bool Check_CRC(std::vector<int> message, int CRC_size);
 
 // SC List Decoder, which returns decod_num possible CodeWords
 std::vector<std::vector<int>> SCList(const std::vector<double>& CodeWord,const int& k,const int& decod_num);
 
 // Choose Message with correct CRC - code
-std::vector<int> Msg_Correct_CRC(const std::vector<std::vector<int>>& PosibleWords);
+std::vector<int> Msg_Correct_CRC(const std::vector<std::vector<int>>& PosibleWords, const int& CRC_size);
 
 // fast SCL decoder
 std::vector<std::vector<int>> Fast_SCL(const std::vector<double>& CodeWord, const int& k, const int& decod_num);
@@ -86,6 +101,9 @@ bool AllEquals(const std::vector<int>& vec, const int& left, const int& right, c
 // index of least reliable bits  (mod length_node)
 std::vector<int> least_reliable_bit(const vector3d_double& L, const int& depth, const int& length_node,  
                                 const int& layer, const int& node, const int& num_least_bits);
+
+//find num errors between message and decoded word
+int NumErrors(const std::vector<int>& Msg, const std::vector<int>& DecodWord);
 
 
 

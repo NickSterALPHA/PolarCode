@@ -248,7 +248,55 @@ std::vector<int> SC_Decoding(const std::vector<double>& CodeWord, const int& k) 
     return result;
 }
 
-std::vector<std::vector<int>> GenerateVectors() {
+void LShiftVector(std::vector<int> &vec) {
+    for (int i = 1; i < vec.size(); i++) {
+        vec[i-1] = vec[i];
+    }
+    vec[vec.size() - 1] = 0;
+}
+
+std::vector<int> LShiftVectorOffset(std::vector<int> vec, int offset) {
+    for (int i = 0; i < offset; i++) {
+        LShiftVector(vec);
+    }
+    return vec;
+}
+
+void RShiftVector(std::vector<int> &vec) {
+    for (int i = vec.size() - 2; i >= 0; i--) {
+        vec[i+1] = vec[i];
+    }
+    vec[0] = 0;
+}
+
+std::vector<int> RShiftVectorOffset(std::vector<int> vec, int offset) {
+    for (int i = 0; i < offset; i++) {
+        RShiftVector(vec);
+    }
+    return vec;
+}
+
+
+std::vector<int> GeneratePolynom(int CRC_size) {
+    std::vector<int> result;
+    switch (CRC_size) {
+    case 8:
+        result = {0, 0, 0, 0, 0, 1, 1, 1};
+        break;
+    case 16:
+        result = {1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 1, 1};
+        break;
+    case 32:
+        result = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                  0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1, 1, 1, 1};
+        break;
+    }
+     
+    return result;
+}
+
+
+std::vector<std::vector<int>> GenerateVectors(int CRC_size) {
     std::vector<std::vector<int>> result;
     for (int j = 0; j < 256; j ++) {
         std::vector<int> vec;
@@ -264,28 +312,34 @@ std::vector<std::vector<int>> GenerateVectors() {
     return result;
 
 }
-void LShiftVector(std::vector<int> &vec) {
-    for (int i = 1; i < vec.size(); i++) {
-        vec[i-1] = vec[i];
-    }
-    vec[vec.size() - 1] = 0;
-}
 
 std::vector<int> operator^ (const std::vector<int>& first,const std::vector<int>& second) {
-    // it works if first.size() == second.size()
     std::vector<int> result;
-    for (int i = 0; i < first.size(); i++) {
-        result.push_back(first[i]^second[i]);
+    int i = first.size() - 1, j = second.size() - 1;
+    while (i >= 0 && j >= 0) {
+        result.push_back(first[i] ^ second[j]);
+        i--; j--;
+    }
+    std::reverse(result.begin(), result.end());
+    if (i >= 0) {
+        result.insert(result.begin(), first.begin(), first.begin() + i + 1);
+    }
+    if (j >= 0) {
+        result.insert(result.begin(), second.begin(), second.begin() + j + 1);
     }
     return result;
 }
 
-std::map<std::vector<int>, std::vector<int>> GenerateTable(const std::vector<int>& Gpolynom) {
+std::map<std::vector<int>, std::vector<int>> GenerateTable(const std::vector<int>& Gpolynom, 
+                                                           int CRC_size) {
     std::map<std::vector<int>, std::vector<int>> result;
-    std::vector<std::vector<int>> all_vectors = GenerateVectors();
+    std::vector<std::vector<int>> all_vectors = GenerateVectors(CRC_size);
     for (auto vec : all_vectors) {
         std::vector<int> copy_vec = vec;
-        for (int i = 0; i < vec.size(); i++ ) {
+        
+        std::vector<int> zero_vector(CRC_size - 8, 0);
+        vec.insert(vec.end(), zero_vector.begin(), zero_vector.end());
+        for (int i = 0; i < 8; i++) {
             if (vec[0] == 1) {
                 LShiftVector(vec);
                 vec = vec ^ Gpolynom;
@@ -299,9 +353,9 @@ std::map<std::vector<int>, std::vector<int>> GenerateTable(const std::vector<int
 
 }
 
-std::vector<int> Get_CRC_8(std::vector<int> message) {
-    std::vector<int> G = {0,0,0,0,0,1,1,1}; // generating polynom
-    std::map<std::vector<int>, std::vector<int>> table = GenerateTable(G);
+std::vector<int> Get_CRC(std::vector<int> message, int CRC_size) {
+    std::vector<int> G = GeneratePolynom(CRC_size); // generating polynom
+    std::map<std::vector<int>, std::vector<int>> table = GenerateTable(G, CRC_size);
 
     if (message.size() % 8 != 0) {
         int num_to_add = 8 - (message.size() % 8);
@@ -309,19 +363,24 @@ std::vector<int> Get_CRC_8(std::vector<int> message) {
         message.insert(message.begin(), zeros.begin(), zeros.end());
     }
 
-    std::vector<int> begin = {0, 0, 0, 0, 0, 0, 0, 0};
-    for (int i = 0; i + 7 < message.size(); i += 8) {
+    std::vector<int> begin(CRC_size, 0);
+    for (int i = 0; i + 8 - 1 < message.size(); i += 8) {
         std::vector<int> PartMsg;
         std::copy(message.begin() + i, message.begin()+i+8, std::back_inserter(PartMsg));
-        std::vector<int> data = begin ^ PartMsg;
-        begin = table[data];
+        std::vector<int> zero_vec (CRC_size - 8, 0);
+        PartMsg.insert(PartMsg.begin(), zero_vec.begin(), zero_vec.end());
+        std::vector<int> pos;
+        std::vector<int> k = LShiftVectorOffset(PartMsg, CRC_size - 8);
+        pos = RShiftVectorOffset((begin ^ LShiftVectorOffset(PartMsg, CRC_size - 8)), CRC_size - 8);
+        pos.erase(pos.begin(), pos.end() - 8); 
+        begin = LShiftVectorOffset(begin, 8) ^ table[pos];
     }
 
     return begin;
 
 }
 
-bool Check_CRC_8(std::vector<int> message) {
+bool Check_CRC(std::vector<int> message, int CRC_size) {
     if (message.size() % 8 != 0) {
         int num_to_add = 8 - (message.size() % 8);
         std::vector<int> zeros(num_to_add, 0);
@@ -329,14 +388,13 @@ bool Check_CRC_8(std::vector<int> message) {
     }
 
 
-    message = Get_CRC_8(message);
-    std::vector<int> zero_vector(8, 0);
+    message = Get_CRC(message, CRC_size);
+    std::vector<int> zero_vector(CRC_size, 0);
     if (message == zero_vector) {
         return true;
     }
     return false;
 }
-
 using vector3d_double = std::vector<std::vector<std::vector<double>>>;
 using vector3d_int = std::vector<std::vector<std::vector<int>>>;
 
@@ -549,9 +607,9 @@ std::vector<std::vector<int>> SCList(const std::vector<double>& CodeWord, const 
 }
 
 
-std::vector<int> Msg_Correct_CRC(const std::vector<std::vector<int>>& PosibleWords) {
+std::vector<int> Msg_Correct_CRC(const std::vector<std::vector<int>>& PosibleWords, const int& CRC_size) {
     for (auto word : PosibleWords) {
-        if (Check_CRC_8(word)) {
+        if (Check_CRC(word, CRC_size)) {
             return word;
         }
     }
@@ -1163,4 +1221,16 @@ std::vector<std::vector<int>> Fast_SCL(const std::vector<double>& CodeWord,const
 
 
     return Answers;
+}
+
+
+int NumErrors(const std::vector<int>& Msg, const std::vector<int>& DecodWord) {
+    int cnt_errors = 0;
+    int num_iter = std::min(Msg.size(), DecodWord.size());
+    for (int i = 0; i < num_iter; i++) {
+        if (Msg[i] != DecodWord[i]) {
+            cnt_errors++;
+        }
+    }
+    return cnt_errors;
 }
