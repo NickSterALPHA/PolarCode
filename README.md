@@ -38,11 +38,11 @@ Example of our interface:
 
 Example of graphics
 
-[Plot of function](/img/plot.png)
+![Plot of function](/img/plot.png)
 
 Time - application illustrating information about which algorithm is faster
 
-[Time of algorithms](/img/time.png)
+![Time of algorithms](/img/time.png)
 
 # References 
 
