@@ -1,5 +1,5 @@
 # Info
-Implementation decoding algorithms of Polar Code. There are 3 type of decoders: SC, SCL, Fast SCL. 
+Implementation decoding algorithms of Polar Code. There are 4 type of decoders: SC, SCL, Fast SCL and upgraded Fast SCL 
 
 # How to download 
 

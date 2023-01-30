@@ -135,7 +135,7 @@ int main() {
 
 
 
-    std::cout << "Prepare for algorithm FastSC List" << std::endl;
+    std::cout << "Prepare for algorithm Upgraded FastSC List" << std::endl;
     std::cout << "Current message: " << std::endl;
     PrintVector<int>(message);
     size_of_message = message.size();
@@ -172,11 +172,11 @@ int main() {
 
 
     begin = std::chrono::steady_clock::now();
-    PosibleWords = Fast_SCL(ReceivedWord, k, 16);
+    PosibleWords = Upgrade_Fast_SCL(ReceivedWord, k, 16);
     end = std::chrono::steady_clock::now();
 
     timeSC = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin);
-    std::cout << "The time of FastSCL algortihm equal " << timeSC.count() << " milliseconds" << std::endl;
+    std::cout << "The time of Upgraded FastSCL algortihm equal " << timeSC.count() << " milliseconds" << std::endl;
 
     for (int i = 0; i < PosibleWords.size(); i++) {
         for(auto num : PosibleWords[i]) {

@@ -1,6 +1,7 @@
 #include "PolarCode.h"
 #include <cmath>
 #include <limits> 
+#include <iostream>
 #include <cmath>
 #include <algorithm>
 #include <string>
@@ -1215,6 +1216,2360 @@ std::vector<std::vector<int>> Fast_SCL(const std::vector<double>& CodeWord,const
             if (IsFrozen[j] == 0) {
                 temp.push_back(Answers[i][j]);
             } 
+        }
+        Answers[i] = temp;
+    }
+
+
+    return Answers;
+}
+
+std::vector<std::vector<int>> Upgrade_Fast_SCL(const std::vector<double>& CodeWord,const int& k, const int& decod_num) {
+    int N = CodeWord.size();
+    int depth_max = (int)log2(N);
+
+    std::vector<int> RelSeq = ReliabilitySequenceForN(N);
+    std::vector<int> IsFrozen = IsFrozenNode(RelSeq, N - k);
+    std::vector<std::vector<int>> Answers(decod_num, std::vector<int> (N, 0));
+
+    std::vector<int> states(2*N-1, 0);
+
+    vector3d_double L(decod_num, std::vector<std::vector<double>>
+            (depth_max+1, CodeWord));
+
+    vector3d_int Ucap(decod_num, std::vector<std::vector<int>>
+            (depth_max + 1, std::vector<int> (N, 0)));
+
+    std::vector<double> PathMetric_old(decod_num, std::numeric_limits<double>::max());
+    std::vector<double> PathMetric_new(decod_num, std::numeric_limits<double>::max());
+    std::vector<double> PathMetric(decod_num, std::numeric_limits<double>::max());
+    std::vector<double> DMetric(decod_num);
+    PathMetric[0] = 0;
+
+    int depth = 0, node = 0;
+    int flag = 0; // 0 means travel is not ended, 1 travel is ended
+
+
+    while (flag == 0) {
+        int CurNode = pow(2, depth) - 1 + node;
+        if (depth == depth_max) { // if we are in leaf
+            for (int i = 0; i < decod_num; i++) {
+                DMetric[i] = L[i][depth][node];
+            }
+            if (IsFrozen[node] == 1) { // if bit is frozen
+                for (int i = 0; i < decod_num; i++) {
+                    Ucap[i][depth][node] = 0;
+                }
+                for (int i = 0; i < decod_num; i++) {
+                    if (DMetric[i] < 0) {
+                        if (PathMetric[i] != std::numeric_limits<double>::max()) {
+                            PathMetric[i] = PathMetric[i] - DMetric[i];
+                        }
+                    }
+                }
+            }
+            else {
+                // make vector of pos and update pm
+                std::vector<bool> Dec(decod_num, false);
+                std::vector<bool> Pos(decod_num, false);
+                for (int i = 0; i < decod_num; i++) {
+                    Dec[i] = (DMetric[i] < 0);
+                }
+                PathMetric_old = PathMetric;
+                PathMetric_new = PathMetric;
+                for (int i = 0; i < decod_num; i++) {
+                    if (PathMetric_new[i] != std::numeric_limits<double>::max()) {
+                        PathMetric_new[i] += std::abs(DMetric[i]);
+                    }
+                }
+                std::vector<double> ConcVector(PathMetric_old);
+                std::vector<int> Positions(decod_num);
+                ConcVector.insert(ConcVector.end(), PathMetric_new.begin(), PathMetric_new.end());
+                std::map <double, int> my_map;
+                for (int i = 0; i < ConcVector.size(); i++) {
+                    my_map[ConcVector[i]] = i;
+                }
+
+                int cnt = 0;
+                for(const auto& num : my_map) {
+                    if (cnt >= decod_num) {
+                        break;
+                    }
+                    PathMetric[cnt] = num.first;
+                    Positions[cnt] = num.second;
+                    cnt++;
+                }
+
+                for (int i = 0; i < decod_num; i++) {
+                    Pos[i] = (Positions[i] >= decod_num);
+                    if (Pos[i]) {
+                        Positions[i] -= decod_num;
+                    }
+                }
+
+                std::vector<bool> CopyDec(Dec);
+
+                for(int i = 0; i < decod_num; i++) {
+                    Dec[i] = CopyDec[Positions[i]];
+                    if (Pos[i]) {
+                        Dec[i] = !Dec[i];
+                    }
+                }
+
+                vector3d_double L_copy(decod_num);
+                vector3d_int Ucap_copy(decod_num);
+
+                for  (int i = 0; i < decod_num; i++) {
+                    L_copy[i] = L[i];
+                    Ucap_copy[i] = Ucap[i];
+                }
+
+                for (int i = 0; i < decod_num; i++) {
+                    L[i] = L_copy[Positions[i]];
+                    Ucap[i] = Ucap_copy[Positions[i]];
+                }
+
+                for (int i = 0; i < decod_num; i++) {
+                    Ucap[i][depth][node] = Dec[i];
+                }
+            }
+            if (node == N - 1) {
+                flag = 1;
+            } else {
+                node /= 2; depth--;
+            }
+        }
+        else { // if we are not in leaf
+            if (states[CurNode] == 0) {
+                int length_node = pow(2, depth_max - depth);
+                if (AllEquals(IsFrozen, node*length_node, (node + 1)*length_node, 1)) {
+                    // Rate0
+                    // states[CurNode] = 2
+                    for (int i = 0; i < decod_num; i++) {
+                        double sum = 0.0;
+                        for (int j = node*length_node; j < (node + 1)*length_node; j++) {
+                            if (L[i][depth][j] < 0.0) {
+                                sum += L[i][depth][j];
+                            }
+                        }
+                        if (PathMetric[i] != std::numeric_limits<double>::max()) {
+                            PathMetric[i] = PathMetric[i] - sum;
+                        }
+                    }
+
+                    if (node == std::pow(2, depth) - 1) {
+                        flag = 1;
+                    }
+                    node /= 2; depth--;
+                    states[CurNode] = 3;
+
+                }
+                else if (AllEquals(IsFrozen, node*length_node, (node + 1)*length_node, 0)) {
+                    //Rate1
+                    std::vector<std::vector<bool>> Dec(decod_num * 4, std::vector<bool> (length_node, false));
+                    std::vector<bool> Pos(decod_num, false);
+                    std::vector<std::vector<int>> two_index(decod_num, std::vector<int>(2, 0));
+                    std::vector<std::vector<int>> G = PolarTransform(depth_max - depth);
+
+
+                    for (int i = 0; i < decod_num; i++) {
+                        two_index[i] = least_reliable_bit(L, depth, length_node, i, node, 2);
+                    }
+
+
+                    for (int i = 0; i < decod_num; i++) {
+                        std::vector<int> dec_0(length_node, 0);
+                        for (int j = node*length_node; j < (node+1)*length_node; j++) {
+                            if (L[i][depth][j] < 0) {
+                                dec_0[j - node*length_node] = 1;
+                            }
+                        }
+                        for (int j = 0; j < 4; j++) {
+                            std::copy(dec_0.begin(), dec_0.end(), Dec[4*i+j].begin());
+                        }
+
+                        Dec[4*i+1][two_index[i][0]] = !Dec[4*i+1][two_index[i][0]];
+                        Dec[4*i+2][two_index[i][1]] = !Dec[4*i+2][two_index[i][1]];
+                        Dec[4*i+3][two_index[i][0]] = !Dec[4*i+3][two_index[i][0]];
+                        Dec[4*i+3][two_index[i][1]] = !Dec[4*i+3][two_index[i][1]];
+
+                    }
+                    std::vector<double> PathMetric_4(4 * decod_num, 0.0);
+
+                    for (int i = 0; i < decod_num; i++) {
+                        for (int j = 0; j < 4; j++) {
+                            PathMetric_4[4*i+j] = PathMetric[i];
+                        }
+                        PathMetric_4[4*i+1] += std::abs(L[i][depth][length_node * node + two_index[i][0]]);
+                        PathMetric_4[4*i+2] += std::abs(L[i][depth][length_node * node + two_index[i][1]]);
+                        PathMetric_4[4*i+3] += std::abs(L[i][depth][length_node * node + two_index[i][0]]);
+                        PathMetric_4[4*i+3] += std::abs(L[i][depth][length_node * node + two_index[i][1]]);
+                    }
+
+                    std::vector<int> Positions(decod_num);
+                    std::vector<std::vector<int>> Decision(decod_num, std::vector<int> (length_node, 0));
+                    std::map <double, int> my_map;
+                    for (int i = 0; i < PathMetric_4.size(); i++) {
+                        my_map[PathMetric_4[i]] = i;
+                    }
+
+                    int cnt = 0;
+                    for(const auto& num : my_map) {
+                        if (cnt >= decod_num) {
+                            break;
+                        }
+                        PathMetric[cnt] = num.first;
+                        Positions[cnt] = num.second;
+                        cnt++;
+                    }
+
+                    cnt = 0;
+                    for (const auto& pos : Positions) {
+                        std::copy(Dec[pos].begin(), Dec[pos].end(), Decision[cnt].begin());
+                        cnt++;
+                    }
+
+                    for (auto& pos : Positions) {
+                        pos = pos / 4;
+                    }
+
+                    vector3d_double L_copy(decod_num);
+                    vector3d_int Ucap_copy(decod_num);
+                    std::vector<std::vector<int>> copy_answers(decod_num);
+
+                    for  (int i = 0; i < decod_num; i++) {
+                        L_copy[i] = L[i];
+                        Ucap_copy[i] = Ucap[i];
+                        copy_answers[i] = Answers[i];
+                    }
+
+                    for (int i = 0; i < decod_num; i++) {
+                        L[i] = L_copy[Positions[i]];
+                        Ucap[i] = Ucap_copy[Positions[i]];
+                        Answers[i] = copy_answers[Positions[i]];
+                    }
+
+                    for (int i = 0; i < decod_num; i++) {
+                        std::copy(Decision[i].begin(), Decision[i].end(),
+                                  Ucap[i][depth].begin() + length_node * node);
+                        Decision[i] = PolarEncoding(Decision[i], G);
+                        std::copy(Decision[i].begin(), Decision[i].end(),
+                                  Answers[i].begin() + node * length_node);
+
+                    }
+
+
+
+
+
+                    if (node == std::pow(2, depth) - 1) {
+                        flag = 1;
+                    }
+                    node /= 2; depth--;
+                    states[CurNode] = 3;
+
+                }
+                else if (AllEquals(IsFrozen, node*length_node, (node + 1)*length_node - 1, 1) &&
+                         IsFrozen[(node + 1)*length_node - 1] == 0) {
+                    //Repetition
+
+                    std::vector<double> DoublePathMetric(2 * PathMetric.size());
+                    std::copy(PathMetric.begin(), PathMetric.end(), DoublePathMetric.begin());
+                    std::copy(PathMetric.begin(), PathMetric.end(), DoublePathMetric.begin() + PathMetric.size());
+                    std::vector<std::vector<int>> G = PolarTransform(depth_max - depth);
+
+                    for (int i = 0; i < decod_num; i++) {
+                        for (int j = length_node * node; j < (node + 1)*length_node; j++) {
+                            if (L[i][depth][j] < 0.0) {
+                                DoublePathMetric[i] -= L[i][depth][j];
+                            }
+                        }
+                    }
+
+                    for (int i = decod_num; i < 2 * decod_num; i++) {
+                        for (int j = length_node * node; j < (node + 1)*length_node; j++) {
+                            if (L[i - decod_num][depth][j] >= 0.0) {
+                                DoublePathMetric[i] += L[i - decod_num][depth][j];
+                            }
+                        }
+                    }
+
+                    std::vector<int> Positions(decod_num);
+                    std::map <double, int> my_map;
+                    for (int i = 0; i < DoublePathMetric.size(); i++) {
+                        my_map[DoublePathMetric[i]] = i;
+                    }
+
+                    int cnt = 0;
+                    for(const auto& num : my_map) {
+                        if (cnt >= decod_num) {
+                            break;
+                        }
+                        PathMetric[cnt] = num.first;
+                        Positions[cnt] = num.second;
+                        cnt++;
+                    }
+
+                    std::vector<bool> Dec(decod_num, false);
+                    for (int i = 0; i < decod_num; i++) {
+                        Dec[i] = (Positions[i] >= decod_num);
+                        if (Dec[i]) {
+                            Positions[i] -= decod_num;
+                        }
+                    }
+
+                    vector3d_double L_copy(decod_num);
+                    vector3d_int Ucap_copy(decod_num);
+                    std::vector<std::vector<int>> copy_answers(decod_num);
+
+                    for  (int i = 0; i < decod_num; i++) {
+                        L_copy[i] = L[i];
+                        Ucap_copy[i] = Ucap[i];
+                        copy_answers[i] = Answers[i];
+                    }
+
+                    for (int i = 0; i < decod_num; i++) {
+                        L[i] = L_copy[Positions[i]];
+                        Ucap[i] = Ucap_copy[Positions[i]];
+                        Answers[i] = copy_answers[Positions[i]];
+                    }
+
+                    std::vector<std::vector<int>> Decision(decod_num, std::vector<int> (length_node, 0));
+
+                    for  (int i = 0; i < decod_num; i++) {
+                        for (int j = node * length_node; j < (node+1)*length_node; j++) {
+                            Decision[i][j - node * length_node] = Dec[i];
+                            Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                        }
+                        Decision[i] = PolarEncoding(Decision[i], G);
+                        std::copy(Decision[i].begin(), Decision[i].end(),
+                                  Answers[i].begin() + node * length_node);
+                    }
+
+                    if (node == std::pow(2, depth) - 1) {
+                        break;
+                    }
+
+
+                    node /= 2; depth--;
+                    states[CurNode] = 3;
+
+                }
+                else if (IsFrozen[node*length_node] == 1 &&
+                         AllEquals(IsFrozen, node*length_node + 1, (node + 1)*length_node, 0) )   {
+                    // SPC
+                    std::vector<std::vector<bool>> Dec(decod_num * 8, std::vector<bool> (length_node, false));
+                    std::vector<double> PathMetric_8(8 * decod_num, 0.0);
+                    std::vector<bool> Pos(decod_num, false);
+                    std::vector<std::vector<int>> four_index(decod_num, std::vector<int>(4, 0));
+                    std::vector<std::vector<int>> G = PolarTransform(depth_max - depth);
+
+                    for (int i = 0; i < decod_num; i++) {
+                        four_index[i] = least_reliable_bit(L, depth, length_node, i, node, 4);
+                    }
+
+
+                    for (int i = 0; i < decod_num; i++) {
+                        std::vector<int> dec_0(length_node, 0);
+                        for (int j = node*length_node; j < (node+1)*length_node; j++) {
+                            if (L[i][depth][j] < 0) {
+                                dec_0[j - node*length_node] = 1;
+                            }
+                        }
+                        int parity=0;
+                        for (int j = 0; j < length_node; j++) {
+                            parity ^= dec_0[j];
+                        }
+
+                        int one_index = four_index[i][0];
+                        dec_0[one_index] ^= parity;
+
+                        for (int j = 0; j < 8; j++) {
+                            std::copy(dec_0.begin(), dec_0.end(), Dec[8*i+j].begin());
+                            PathMetric_8[8*i+j] = PathMetric[i] +
+                                                  parity * std::abs(L[i][depth][length_node * node + four_index[i][0]]);
+                        }
+
+                        Dec[8*i+1][four_index[i][0]] = !Dec[8*i+1][four_index[i][0]];
+                        Dec[8*i+1][four_index[i][1]] = !Dec[8*i+1][four_index[i][1]];
+
+                        Dec[8*i+2][four_index[i][0]] = !Dec[8*i+2][four_index[i][0]];
+                        Dec[8*i+2][four_index[i][2]] = !Dec[8*i+2][four_index[i][2]];
+
+                        Dec[8*i+3][four_index[i][0]] = !Dec[8*i+3][four_index[i][0]];
+                        Dec[8*i+3][four_index[i][3]] = !Dec[8*i+3][four_index[i][3]];
+
+                        Dec[8*i+4][four_index[i][1]] = !Dec[8*i+4][four_index[i][1]];
+                        Dec[8*i+4][four_index[i][2]] = !Dec[8*i+4][four_index[i][2]];
+
+                        Dec[8*i+5][four_index[i][1]] = !Dec[8*i+5][four_index[i][1]];
+                        Dec[8*i+5][four_index[i][3]] = !Dec[8*i+5][four_index[i][3]];
+
+                        Dec[8*i+6][four_index[i][2]] = !Dec[8*i+6][four_index[i][2]];
+                        Dec[8*i+6][four_index[i][3]] = !Dec[8*i+6][four_index[i][3]];
+
+                        Dec[8*i+7][four_index[i][0]] = !Dec[8*i+7][four_index[i][0]];
+                        Dec[8*i+7][four_index[i][1]] = !Dec[8*i+7][four_index[i][1]];
+                        Dec[8*i+7][four_index[i][2]] = !Dec[8*i+7][four_index[i][2]];
+                        Dec[8*i+7][four_index[i][3]] = !Dec[8*i+7][four_index[i][3]];
+
+
+
+                        PathMetric_8[8*i+1] += (1-parity) * std::abs(L[i][depth][length_node * node + four_index[i][0]]);
+                        PathMetric_8[8*i+1] += std::abs(L[i][depth][length_node * node + four_index[i][1]]);
+
+                        PathMetric_8[8*i+2] += (1-parity) * std::abs(L[i][depth][length_node * node + four_index[i][0]]);
+                        PathMetric_8[8*i+2] += std::abs(L[i][depth][length_node * node + four_index[i][2]]);
+
+                        PathMetric_8[8*i+3] += (1-parity) * std::abs(L[i][depth][length_node * node + four_index[i][0]]);
+                        PathMetric_8[8*i+3] += std::abs(L[i][depth][length_node * node + four_index[i][3]]);
+
+                        PathMetric_8[8*i+4] += std::abs(L[i][depth][length_node * node + four_index[i][1]]);
+                        PathMetric_8[8*i+4] += std::abs(L[i][depth][length_node * node + four_index[i][2]]);
+
+                        PathMetric_8[8*i+5] += std::abs(L[i][depth][length_node * node + four_index[i][1]]);
+                        PathMetric_8[8*i+5] += std::abs(L[i][depth][length_node * node + four_index[i][3]]);
+
+                        PathMetric_8[8*i+6] += std::abs(L[i][depth][length_node * node + four_index[i][2]]);
+                        PathMetric_8[8*i+6] += std::abs(L[i][depth][length_node * node + four_index[i][3]]);
+
+                        PathMetric_8[8*i+7] += (1-parity) * std::abs(L[i][depth][length_node * node + four_index[i][0]]);
+                        PathMetric_8[8*i+7] += std::abs(L[i][depth][length_node * node + four_index[i][1]]);
+                        PathMetric_8[8*i+7] += std::abs(L[i][depth][length_node * node + four_index[i][2]]);
+                        PathMetric_8[8*i+7] += std::abs(L[i][depth][length_node * node + four_index[i][3]]);
+                    }
+
+                    std::vector<int> Positions(decod_num);
+                    std::vector<std::vector<int>> Decision(decod_num, std::vector<int> (length_node, 0));
+                    std::map <double, int> my_map;
+                    for (int i = 0; i < PathMetric_8.size(); i++) {
+                        my_map[PathMetric_8[i]] = i;
+                    }
+
+                    int cnt = 0;
+                    for(const auto& num : my_map) {
+                        if (cnt >= decod_num) {
+                            break;
+                        }
+                        PathMetric[cnt] = num.first;
+                        Positions[cnt] = num.second;
+                        cnt++;
+                    }
+
+                    cnt = 0;
+                    for (const auto& pos : Positions) {
+                        std::copy(Dec[pos].begin(), Dec[pos].end(), Decision[cnt].begin());
+                        cnt++;
+                    }
+
+                    for (auto& pos : Positions) {
+                        pos = pos / 8;
+                    }
+
+                    vector3d_double L_copy(decod_num);
+                    vector3d_int Ucap_copy(decod_num);
+                    std::vector<std::vector<int>> copy_answers(decod_num);
+
+                    for  (int i = 0; i < decod_num; i++) {
+                        L_copy[i] = L[i];
+                        Ucap_copy[i] = Ucap[i];
+                        copy_answers[i] = Answers[i];
+                    }
+
+                    for (int i = 0; i < decod_num; i++) {
+                        L[i] = L_copy[Positions[i]];
+                        Ucap[i] = Ucap_copy[Positions[i]];
+                        Answers[i] = copy_answers[Positions[i]];
+                    }
+
+                    for (int i = 0; i < decod_num; i++) {
+                        std::copy(Decision[i].begin(), Decision[i].end(),
+                                  Ucap[i][depth].begin() + length_node * node);
+                        Decision[i] = PolarEncoding(Decision[i], G);
+                        std::copy(Decision[i].begin(), Decision[i].end(),
+                                  Answers[i].begin() + node * length_node);
+
+                    }
+
+                    if (node == std::pow(2, depth) - 1) {
+                        flag = 1;
+                    }
+
+                    node /= 2; depth--;
+                    states[CurNode] = 3;
+                }
+
+                    ////////
+                else if (AllEquals(IsFrozen, node*length_node, (node + 1)*length_node - 2, 1) &&
+                         IsFrozen[(node + 1)*length_node - 2] == 0 && IsFrozen[(node + 1)*length_node - 1] == 0) {
+                    //Type-I
+
+                    std::vector<double> QuadPathMetric(4 * PathMetric.size());
+                    std::copy(PathMetric.begin(), PathMetric.end(), QuadPathMetric.begin());
+                    std::copy(PathMetric.begin(), PathMetric.end(), QuadPathMetric.begin() + PathMetric.size());
+                    std::copy(PathMetric.begin(), PathMetric.end(), QuadPathMetric.begin() + 2 * PathMetric.size());
+                    std::copy(PathMetric.begin(), PathMetric.end(), QuadPathMetric.begin() + 3 * PathMetric.size());
+                    std::vector<std::vector<int>> G = PolarTransform(depth_max - depth);
+
+                    //PM_00
+                    for (int i = 0; i < decod_num; i++) {
+                        for (int j = length_node * node; j < (node + 1)*length_node; j++) {
+                            if (L[i][depth][j] < 0.0) {
+                                QuadPathMetric[i] -= L[i][depth][j];
+                            }
+                        }
+                    }
+
+
+                    //PM_01
+                    for (int i = decod_num; i < 2 * decod_num; i++) {
+                        for (int j = length_node * node; j < (node + 1)*length_node; j += 2) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                QuadPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 1; j < (node + 1)*length_node; j += 2) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                QuadPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                    }
+
+
+                    //PM_10
+                    for (int i = 2 * decod_num; i < 3 * decod_num; i++) {
+                        for (int j = length_node * node; j < (node + 1)*length_node; j += 2) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                QuadPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 1; j < (node + 1)*length_node; j += 2) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                QuadPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                    }
+
+
+                    //PM_11
+                    for (int i = 3 * decod_num; i < 4 * decod_num; i++) {
+                        for (int j = length_node * node; j < (node + 1)*length_node; j++) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                QuadPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                    }
+
+                    std::vector<int> Positions(decod_num);
+                    std::map <double, int> my_map;
+                    for (int i = 0; i < QuadPathMetric.size(); i++) {
+                        my_map[QuadPathMetric[i]] = i;
+                    }
+
+                    int cnt = 0;
+                    for(const auto& num : my_map) {
+                        if (cnt >= decod_num) {
+                            break;
+                        }
+                        PathMetric[cnt] = num.first;
+                        Positions[cnt] = num.second;
+                        cnt++;
+                    }
+
+                    std::vector<int> Dec(decod_num, 0);
+                    for (int i = 0; i < decod_num; i++) {
+                        Dec[i] = (Positions[i] / decod_num);
+                        if (Dec[i]) {
+                            Positions[i] %= decod_num;
+                        }
+                    }
+
+                    vector3d_double L_copy(decod_num);
+                    vector3d_int Ucap_copy(decod_num);
+                    std::vector<std::vector<int>> copy_answers(decod_num);
+
+                    for  (int i = 0; i < decod_num; i++) {
+                        L_copy[i] = L[i];
+                        Ucap_copy[i] = Ucap[i];
+                        copy_answers[i] = Answers[i];
+                    }
+
+                    for (int i = 0; i < decod_num; i++) {
+                        L[i] = L_copy[Positions[i]];
+                        Ucap[i] = Ucap_copy[Positions[i]];
+                        Answers[i] = copy_answers[Positions[i]];
+                    }
+
+                    std::vector<std::vector<int>> Decision(decod_num, std::vector<int> (length_node, 0));
+
+                    for  (int i = 0; i < decod_num; i++) {
+                        switch(Dec[i]) {
+                            case 0:
+                                for (int j = node * length_node; j < (node+1)*length_node; j++) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                break;
+
+                            case 1:
+                                for (int j = node * length_node; j < (node+1)*length_node; j += 2) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 1; j < (node+1)*length_node; j += 2) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                break;
+
+                            case 2:
+                                for (int j = node * length_node; j < (node+1)*length_node; j += 2) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 1; j < (node+1)*length_node; j += 2) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                break;
+
+                            case 3:
+                                for (int j = node * length_node; j < (node+1)*length_node; j++) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                break;
+                        }
+                        Decision[i] = PolarEncoding(Decision[i], G);
+                        std::copy(Decision[i].begin(), Decision[i].end(),
+                                  Answers[i].begin() + node * length_node);
+                    }
+
+                    if (node == std::pow(2, depth) - 1) {
+                        break;
+                    }
+
+
+                    node /= 2; depth--;
+                    states[CurNode] = 3;
+
+                }
+
+                else if (AllEquals(IsFrozen, node*length_node, (node + 1)*length_node - 3, 1) &&
+                         IsFrozen[(node + 1)*length_node - 3] == 0 &&
+                IsFrozen[(node + 1)*length_node - 2] == 0 &&
+                IsFrozen[(node + 1)*length_node - 1] == 0) {
+                    //Type-II
+
+                    std::vector<double> OctoPathMetric(8 * PathMetric.size());
+                    std::copy(PathMetric.begin(), PathMetric.end(), OctoPathMetric.begin());
+                    std::copy(PathMetric.begin(), PathMetric.end(), OctoPathMetric.begin() + PathMetric.size());
+                    std::copy(PathMetric.begin(), PathMetric.end(), OctoPathMetric.begin() + 2 * PathMetric.size());
+                    std::copy(PathMetric.begin(), PathMetric.end(), OctoPathMetric.begin() + 3 * PathMetric.size());
+                    std::copy(PathMetric.begin(), PathMetric.end(), OctoPathMetric.begin() + 4 * PathMetric.size());
+                    std::copy(PathMetric.begin(), PathMetric.end(), OctoPathMetric.begin() + 5 * PathMetric.size());
+                    std::copy(PathMetric.begin(), PathMetric.end(), OctoPathMetric.begin() + 6 * PathMetric.size());
+                    std::copy(PathMetric.begin(), PathMetric.end(), OctoPathMetric.begin() + 7 * PathMetric.size());
+                    std::vector<std::vector<int>> G = PolarTransform(depth_max - depth);
+
+                    //PM_0000
+                    for (int i = 0; i < decod_num; i++) {
+                        for (int j = length_node * node; j < (node + 1)*length_node; j++) {
+                            if (L[i][depth][j] < 0.0) {
+                                OctoPathMetric[i] -= L[i][depth][j];
+                            }
+                        }
+                    }
+
+
+                    //PM_1001
+                    for (int i = decod_num; i < 2 * decod_num; i++) {
+                        for (int j = length_node * node; j < (node + 1)*length_node; j += 4) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                OctoPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 1; j < (node + 1)*length_node; j += 4) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                OctoPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 2; j < (node + 1)*length_node; j += 4) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                OctoPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 3; j < (node + 1)*length_node; j += 4) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                OctoPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                    }
+
+
+                    //PM_1010
+                    for (int i = 2 * decod_num; i < 3 * decod_num; i++) {
+                        for (int j = length_node * node; j < (node + 1)*length_node; j += 4) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                OctoPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 1; j < (node + 1)*length_node; j += 4) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                OctoPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 2; j < (node + 1)*length_node; j += 4) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                OctoPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 3; j < (node + 1)*length_node; j += 4) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                OctoPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                    }
+
+
+                    //PM_0011
+                    for (int i = 3 * decod_num; i < 4 * decod_num; i++) {
+                        for (int j = length_node * node; j < (node + 1)*length_node; j += 4) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                OctoPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 1; j < (node + 1)*length_node; j += 4) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                OctoPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 2; j < (node + 1)*length_node; j += 4) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                OctoPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 3; j < (node + 1)*length_node; j += 4) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                OctoPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                    }
+
+                    //PM_1100
+                    for (int i = 4 * decod_num; i < 5 * decod_num; i++) {
+                        for (int j = length_node * node; j < (node + 1)*length_node; j += 4) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                OctoPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 1; j < (node + 1)*length_node; j += 4) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                OctoPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 2; j < (node + 1)*length_node; j += 4) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                OctoPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 3; j < (node + 1)*length_node; j += 4) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                OctoPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                    }
+
+                    //PM_0101
+                    for (int i = 5 * decod_num; i < 6 * decod_num; i++) {
+                        for (int j = length_node * node; j < (node + 1)*length_node; j += 4) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                OctoPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 1; j < (node + 1)*length_node; j += 4) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                OctoPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 2; j < (node + 1)*length_node; j += 4) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                OctoPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 3; j < (node + 1)*length_node; j += 4) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                OctoPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                    }
+
+                    //PM_0110
+                    for (int i = 6 * decod_num; i < 7 * decod_num; i++) {
+                        for (int j = length_node * node; j < (node + 1)*length_node; j += 4) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                OctoPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 1; j < (node + 1)*length_node; j += 4) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                OctoPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 2; j < (node + 1)*length_node; j += 4) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                OctoPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 3; j < (node + 1)*length_node; j += 4) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                OctoPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                    }
+                    //PM_1111
+                    for (int i = 7 * decod_num; i < 8 * decod_num; i++) {
+                        for (int j = length_node * node; j < (node + 1)*length_node; j++) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                OctoPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                    }
+
+                    std::vector<int> Positions(decod_num);
+                    std::map <double, int> my_map;
+                    for (int i = 0; i < OctoPathMetric.size(); i++) {
+                        my_map[OctoPathMetric[i]] = i;
+                    }
+
+                    int cnt = 0;
+                    for(const auto& num : my_map) {
+                        if (cnt >= decod_num) {
+                            break;
+                        }
+                        PathMetric[cnt] = num.first;
+                        Positions[cnt] = num.second;
+                        cnt++;
+                    }
+
+                    std::vector<int> Dec(decod_num, 0);
+                    for (int i = 0; i < decod_num; i++) {
+                        Dec[i] = (Positions[i] / decod_num);
+                        if (Dec[i]) {
+                            Positions[i] %= decod_num;
+                        }
+                    }
+
+                    vector3d_double L_copy(decod_num);
+                    vector3d_int Ucap_copy(decod_num);
+                    std::vector<std::vector<int>> copy_answers(decod_num);
+
+                    for  (int i = 0; i < decod_num; i++) {
+                        L_copy[i] = L[i];
+                        Ucap_copy[i] = Ucap[i];
+                        copy_answers[i] = Answers[i];
+                    }
+
+                    for (int i = 0; i < decod_num; i++) {
+                        L[i] = L_copy[Positions[i]];
+                        Ucap[i] = Ucap_copy[Positions[i]];
+                        Answers[i] = copy_answers[Positions[i]];
+                    }
+
+                    std::vector<std::vector<int>> Decision(decod_num, std::vector<int> (length_node, 0));
+
+                    for  (int i = 0; i < decod_num; i++) {
+                        switch(Dec[i]) {
+                            case 0:
+                                for (int j = node * length_node; j < (node+1)*length_node; j++) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                break;
+
+                            case 1:
+                                for (int j = node * length_node; j < (node+1)*length_node; j += 4) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 1; j < (node+1)*length_node; j += 4) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 2; j < (node+1)*length_node; j += 4) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 3; j < (node+1)*length_node; j += 4) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                break;
+
+                            case 2:
+                                for (int j = node * length_node; j < (node+1)*length_node; j += 4) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 1; j < (node+1)*length_node; j += 4) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 2; j < (node+1)*length_node; j += 4) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 3; j < (node+1)*length_node; j += 4) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                break;
+
+                            case 3:
+                                for (int j = node * length_node; j < (node+1)*length_node; j += 4) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 1; j < (node+1)*length_node; j += 4) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 2; j < (node+1)*length_node; j += 4) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 3; j < (node+1)*length_node; j += 4) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                break;
+
+                            case 4:
+                                for (int j = node * length_node; j < (node+1)*length_node; j += 4) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 1; j < (node+1)*length_node; j += 4) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 2; j < (node+1)*length_node; j += 4) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 3; j < (node+1)*length_node; j += 4) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                break;
+
+                            case 5:
+                                for (int j = node * length_node; j < (node+1)*length_node; j += 4) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 1; j < (node+1)*length_node; j += 4) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 2; j < (node+1)*length_node; j += 4) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 3; j < (node+1)*length_node; j += 4) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                break;
+
+                            case 6:
+                                for (int j = node * length_node; j < (node+1)*length_node; j += 4) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 1; j < (node+1)*length_node; j += 4) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 2; j < (node+1)*length_node; j += 4) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 3; j < (node+1)*length_node; j += 4) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                break;
+
+                            case 7:
+                                for (int j = node * length_node; j < (node+1)*length_node; j++) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                break;
+                        }
+                        Decision[i] = PolarEncoding(Decision[i], G);
+                        std::copy(Decision[i].begin(), Decision[i].end(),
+                                  Answers[i].begin() + node * length_node);
+                    }
+
+                    if (node == std::pow(2, depth) - 1) {
+                        break;
+                    }
+
+
+                    node /= 2; depth--;
+                    states[CurNode] = 3;
+
+                }
+
+                else if (AllEquals(IsFrozen, node*length_node, (node + 1)*length_node - 5, 1) &&
+                         IsFrozen[(node + 1)*length_node - 5] == 0 &&
+                IsFrozen[(node + 1)*length_node - 4] == 1 &&
+                IsFrozen[(node + 1)*length_node - 3] == 0 &&
+                IsFrozen[(node + 1)*length_node - 2] == 0 &&
+                IsFrozen[(node + 1)*length_node - 1] == 0) {
+                    //Type-V
+
+                    std::vector<double> HexPathMetric(16 * PathMetric.size());
+                    std::copy(PathMetric.begin(), PathMetric.end(), HexPathMetric.begin());
+                    std::copy(PathMetric.begin(), PathMetric.end(), HexPathMetric.begin() + PathMetric.size());
+                    std::copy(PathMetric.begin(), PathMetric.end(), HexPathMetric.begin() + 2 * PathMetric.size());
+                    std::copy(PathMetric.begin(), PathMetric.end(), HexPathMetric.begin() + 3 * PathMetric.size());
+                    std::copy(PathMetric.begin(), PathMetric.end(), HexPathMetric.begin() + 4 * PathMetric.size());
+                    std::copy(PathMetric.begin(), PathMetric.end(), HexPathMetric.begin() + 5 * PathMetric.size());
+                    std::copy(PathMetric.begin(), PathMetric.end(), HexPathMetric.begin() + 6 * PathMetric.size());
+                    std::copy(PathMetric.begin(), PathMetric.end(), HexPathMetric.begin() + 7 * PathMetric.size());
+                    std::copy(PathMetric.begin(), PathMetric.end(), HexPathMetric.begin() + 8 * PathMetric.size());
+                    std::copy(PathMetric.begin(), PathMetric.end(), HexPathMetric.begin() + 9 * PathMetric.size());
+                    std::copy(PathMetric.begin(), PathMetric.end(), HexPathMetric.begin() + 10 * PathMetric.size());
+                    std::copy(PathMetric.begin(), PathMetric.end(), HexPathMetric.begin() + 11 * PathMetric.size());
+                    std::copy(PathMetric.begin(), PathMetric.end(), HexPathMetric.begin() + 12 * PathMetric.size());
+                    std::copy(PathMetric.begin(), PathMetric.end(), HexPathMetric.begin() + 13 * PathMetric.size());
+                    std::copy(PathMetric.begin(), PathMetric.end(), HexPathMetric.begin() + 14 * PathMetric.size());
+                    std::copy(PathMetric.begin(), PathMetric.end(), HexPathMetric.begin() + 15 * PathMetric.size());
+                    std::vector<std::vector<int>> G = PolarTransform(depth_max - depth);
+
+                    /*
+                    0000 -> 0000 0000
+                    0001 -> 0110 1001
+                    0010 -> 1010 1010
+                    0011 -> 1100 0011
+                    0100 -> 1100 1100
+                    0101 -> 1010 0101
+                    0110 -> 0110 0110
+                    0111 -> 0000 1111
+                    1000 -> 1111 0000
+                    1001 -> 1001 1001
+                    1010 -> 0101 1010
+                    1011 -> 0011 0011
+                    1100 -> 0011 1100
+                    1101 -> 0101 0101
+                    1110 -> 1001 0110
+                    1111 -> 1111 1111
+                    */
+
+                    //PM_0000
+                    for (int i = 0; i < decod_num; i++) {
+                        for (int j = length_node * node; j < (node + 1)*length_node; j++) {
+                            if (L[i][depth][j] < 0.0) {
+                                HexPathMetric[i] -= L[i][depth][j];
+                            }
+                        }
+                    }
+
+
+                    //PM_0001
+                    for (int i = decod_num; i < 2 * decod_num; i++) {
+                        for (int j = length_node * node; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                HexPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 1; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                HexPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 2; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                HexPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 3; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                HexPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 4; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                HexPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 5; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                HexPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 6; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                HexPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 7; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                HexPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                    }
+
+
+                    //PM_0010
+                    for (int i = 2 * decod_num; i < 3 * decod_num; i++) {
+                        for (int j = length_node * node; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                HexPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 1; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                HexPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 2; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                HexPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 3; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                HexPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 4; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                HexPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 5; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                HexPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 6; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                HexPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 7; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                HexPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                    }
+
+
+                    //PM_0011
+                    for (int i = 3 * decod_num; i < 4 * decod_num; i++) {
+                        for (int j = length_node * node; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                HexPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 1; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                HexPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 2; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                HexPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 3; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                HexPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 4; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                HexPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 5; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                HexPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 6; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                HexPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 7; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                HexPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                    }
+
+
+                    //PM_0100
+                    for (int i = 4 * decod_num; i < 5 * decod_num; i++) {
+                        for (int j = length_node * node; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                HexPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 1; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                HexPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 2; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                HexPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 3; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                HexPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 4; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                HexPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 5; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                HexPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 6; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                HexPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 7; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                HexPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                    }
+
+
+                    //PM_0101
+                    for (int i = 5 * decod_num; i < 6 * decod_num; i++) {
+                        for (int j = length_node * node; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                HexPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 1; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                HexPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 2; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                HexPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 3; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                HexPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 4; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                HexPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 5; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                HexPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 6; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                HexPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 7; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                HexPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                    }
+
+
+                    //PM_0110
+                    for (int i = 6 * decod_num; i < 7 * decod_num; i++) {
+                        for (int j = length_node * node; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                HexPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 1; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                HexPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 2; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                HexPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 3; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                HexPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 4; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                HexPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 5; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                HexPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 6; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                HexPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 7; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                HexPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                    }
+
+
+                    //PM_0111
+                    for (int i = 7 * decod_num; i < 8 * decod_num; i++) {
+                        for (int j = length_node * node; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                HexPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 1; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                HexPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 2; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                HexPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 3; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                HexPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 4; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                HexPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 5; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                HexPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 6; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                HexPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 7; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                HexPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                    }
+
+
+                    //PM_1000
+                    for (int i = 8 * decod_num; i < 9 * decod_num; i++) {
+                        for (int j = length_node * node; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                HexPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 1; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                HexPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 2; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                HexPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 3; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                HexPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 4; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                HexPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 5; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                HexPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 6; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                HexPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 7; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                HexPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                    }
+
+
+                    //PM_1001
+                    for (int i = 9 * decod_num; i < 10 * decod_num; i++) {
+                        for (int j = length_node * node; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                HexPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 1; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                HexPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 2; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                HexPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 3; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                HexPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 4; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                HexPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 5; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                HexPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 6; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                HexPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 7; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                HexPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                    }
+
+
+                    //PM_1010
+                    for (int i = 10 * decod_num; i < 11 * decod_num; i++) {
+                        for (int j = length_node * node; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                HexPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 1; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                HexPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 2; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                HexPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 3; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                HexPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 4; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                HexPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 5; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                HexPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 6; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                HexPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 7; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                HexPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                    }
+
+
+                    //PM_1011
+                    for (int i = 11 * decod_num; i < 12 * decod_num; i++) {
+                        for (int j = length_node * node; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                HexPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 1; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                HexPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 2; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                HexPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 3; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                HexPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 4; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                HexPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 5; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                HexPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 6; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                HexPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 7; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                HexPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                    }
+
+
+                    //PM_1100
+                    for (int i = 12 * decod_num; i < 13 * decod_num; i++) {
+                        for (int j = length_node * node; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                HexPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 1; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                HexPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 2; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                HexPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 3; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                HexPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 4; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                HexPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 5; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                HexPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 6; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                HexPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 7; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                HexPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                    }
+
+
+                    //PM_1101
+                    for (int i = 13 * decod_num; i < 14 * decod_num; i++) {
+                        for (int j = length_node * node; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                HexPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 1; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                HexPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 2; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                HexPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 3; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                HexPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 4; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                HexPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 5; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                HexPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 6; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                HexPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 7; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                HexPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                    }
+
+
+                    //PM_1110
+                    for (int i = 14 * decod_num; i < 15 * decod_num; i++) {
+                        for (int j = length_node * node; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                HexPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 1; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                HexPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 2; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                HexPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 3; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                HexPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 4; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                HexPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 5; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                HexPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 6; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                HexPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                        for (int j = length_node * node + 7; j < (node + 1)*length_node; j += 8) {
+                            if (L[i % decod_num][depth][j] < 0.0) {
+                                HexPathMetric[i] -= L[i % decod_num][depth][j];
+                            }
+                        }
+                    }
+
+
+                    //PM_1111
+                    for (int i = 15 * decod_num; i < 16 * decod_num; i++) {
+                        for (int j = length_node * node; j < (node + 1)*length_node; j++) {
+                            if (L[i % decod_num][depth][j] >= 0.0) {
+                                HexPathMetric[i] += L[i % decod_num][depth][j];
+                            }
+                        }
+                    }
+
+                    std::vector<int> Positions(decod_num);
+                    std::map <double, int> my_map;
+                    for (int i = 0; i < HexPathMetric.size(); i++) {
+                        my_map[HexPathMetric[i]] = i;
+                    }
+
+                    int cnt = 0;
+                    for(const auto& num : my_map) {
+                        if (cnt >= decod_num) {
+                            break;
+                        }
+                        PathMetric[cnt] = num.first;
+                        Positions[cnt] = num.second;
+                        cnt++;
+                    }
+
+                    std::vector<int> Dec(decod_num, 0);
+                    for (int i = 0; i < decod_num; i++) {
+                        Dec[i] = (Positions[i] / decod_num);
+                        if (Dec[i]) {
+                            Positions[i] %= decod_num;
+                        }
+                    }
+
+                    vector3d_double L_copy(decod_num);
+                    vector3d_int Ucap_copy(decod_num);
+                    std::vector<std::vector<int>> copy_answers(decod_num);
+
+                    for  (int i = 0; i < decod_num; i++) {
+                        L_copy[i] = L[i];
+                        Ucap_copy[i] = Ucap[i];
+                        copy_answers[i] = Answers[i];
+                    }
+
+                    for (int i = 0; i < decod_num; i++) {
+                        L[i] = L_copy[Positions[i]];
+                        Ucap[i] = Ucap_copy[Positions[i]];
+                        Answers[i] = copy_answers[Positions[i]];
+                    }
+
+                    std::vector<std::vector<int>> Decision(decod_num, std::vector<int> (length_node, 0));
+
+                    for  (int i = 0; i < decod_num; i++) {
+                        switch(Dec[i]) {
+                            case 0:
+                                for (int j = node * length_node; j < (node+1)*length_node; j++) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                break;
+
+                            case 1:
+                                for (int j = node * length_node; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 1; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 2; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 3; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 4; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 5; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 6; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 7; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                break;
+
+                            case 2:
+                                for (int j = node * length_node; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 1; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 2; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 3; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 4; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 5; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 6; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 7; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                break;
+
+                            case 3:
+                                for (int j = node * length_node; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 1; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 2; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 3; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 4; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 5; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 6; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 7; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                break;
+
+                            case 4:
+                                for (int j = node * length_node; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 1; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 2; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 3; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 4; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 5; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 6; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 7; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                break;
+
+                            case 5:
+                                for (int j = node * length_node; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 1; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 2; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 3; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 4; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 5; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 6; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 7; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                break;
+
+                            case 6:
+                                for (int j = node * length_node; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 1; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 2; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 3; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 4; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 5; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 6; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 7; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                break;
+
+                            case 7:
+                                for (int j = node * length_node; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 1; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 2; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 3; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 4; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 5; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 6; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 7; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                break;
+
+                            case 8:
+                                for (int j = node * length_node; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 1; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 2; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 3; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 4; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 5; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 6; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 7; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                break;
+
+                            case 9:
+                                for (int j = node * length_node; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 1; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 2; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 3; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 4; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 5; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 6; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 7; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                break;
+
+                            case 10:
+                                for (int j = node * length_node; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 1; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 2; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 3; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 4; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 5; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 6; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 7; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                break;
+
+                            case 11:
+                                for (int j = node * length_node; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 1; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 2; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 3; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 4; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 5; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 6; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 7; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                break;
+
+                            case 12:
+                                for (int j = node * length_node; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 1; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 2; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 3; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 4; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 5; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 6; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 7; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                break;
+
+                            case 13:
+                                for (int j = node * length_node; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 1; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 2; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 3; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 4; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 5; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 6; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 7; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                break;
+
+                            case 14:
+                                for (int j = node * length_node; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 1; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 2; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 3; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 4; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 5; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 6; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                for (int j = node * length_node + 7; j < (node+1)*length_node; j += 8) {
+                                    Decision[i][j - node * length_node] = 0;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                break;
+
+                            case 15:
+                                for (int j = node * length_node; j < (node+1)*length_node; j++) {
+                                    Decision[i][j - node * length_node] = 1;
+                                    Ucap[i][depth][j] = Decision[i][j - node*length_node];
+                                }
+                                break;
+                        }
+                        Decision[i] = PolarEncoding(Decision[i], G);
+                        std::copy(Decision[i].begin(), Decision[i].end(),
+                                  Answers[i].begin() + node * length_node);
+                    }
+
+                    if (node == std::pow(2, depth) - 1) {
+                        break;
+                    }
+
+
+                    node /= 2; depth--;
+                    states[CurNode] = 3;
+
+                }
+                ////////
+
+                else {
+                    std::vector<std::vector<double>>
+                            node_parent (decod_num, std::vector<double>(length_node)),
+                            a(decod_num, std::vector<double>(length_node / 2)),
+                            b(decod_num, std::vector<double>(length_node / 2));
+
+                    for (int i = 0; i < decod_num; i++ ) {
+                        std::copy(L[i][depth].begin() + length_node*node,
+                                  L[i][depth].begin() + length_node *(node + 1), node_parent[i].begin());
+                        std::copy(node_parent[i].begin(), node_parent[i].begin()+length_node/2, a[i].begin() );
+                        std::copy(node_parent[i].begin()+ length_node/2, node_parent[i].end(), b[i].begin());
+                    }
+                    depth++; node *= 2; length_node /= 2;
+                    std::vector<std::vector<double>> FuncF(decod_num);
+                    for (int i = 0; i < decod_num; i++) {
+                        FuncF[i] = FuncFVectors(a[i], b[i]);
+                        std::copy(FuncF[i].begin(), FuncF[i].end(),
+                                  L[i][depth].begin() + length_node*node);
+                    }
+                    states[CurNode] = 1;
+                }
+            }
+            else if (states[CurNode] == 1) {
+                int length_node = pow(2, depth_max - depth);
+                std::vector<std::vector<double>>
+                        node_parent(decod_num, std::vector<double>(length_node)),
+                        a(decod_num, std::vector<double>(length_node / 2)),
+                        b(decod_num, std::vector<double>(length_node / 2));
+
+                for (int i = 0; i < decod_num; i++) {
+                    std::copy(L[i][depth].begin() + length_node*node,
+                              L[i][depth].begin() + length_node *(node + 1), node_parent[i].begin());
+                    std::copy(node_parent[i].begin(), node_parent[i].begin()+length_node/2, a[i].begin() );
+                    std::copy(node_parent[i].begin()+ length_node/2, node_parent[i].end(), b[i].begin());
+                }
+
+                int left_child_depth = depth + 1;
+                int left_child_node = node * 2;
+                int left_length_node =  length_node / 2;
+                std::vector<std::vector<double>> CurUCap(decod_num, std::vector<double>(left_length_node));
+
+                for (int i = 0; i < decod_num; i++) {
+                    std::copy(Ucap[i][left_child_depth].begin() + left_child_node*left_length_node,
+                              Ucap[i][left_child_depth].begin() + left_length_node*(left_child_node+1), CurUCap[i].begin());
+                }
+
+                depth++; node = node * 2 + 1; length_node /= 2;
+                std::vector<std::vector<double>> FuncG(decod_num);
+                for (int i = 0; i < decod_num; i++) {
+                    FuncG[i] = FuncGVectors(a[i], b[i], CurUCap[i]);
+                    std::copy(FuncG[i].begin(), FuncG[i].end(), L[i][depth].begin() + length_node*node);
+                }
+                states[CurNode] = 2;
+            }
+            else if (states[CurNode] == 2){
+                int length_node = pow(2, depth_max - depth);
+                int gen_length_node = length_node / 2, gen_depth = depth + 1;
+                int left_node = 2 * node, right_node = 2 * node + 1;
+                std::vector<std::vector<int>>
+                        Ucap_left (decod_num, std::vector<int>(gen_length_node)),
+                        Ucap_right(decod_num, std::vector<int>(gen_length_node));
+
+                for (int i = 0; i < decod_num; i++) {
+                    std::copy(Ucap[i][gen_depth].begin() + gen_length_node*left_node,
+                              Ucap[i][gen_depth].begin() + gen_length_node*(left_node + 1),
+                              Ucap_left[i].begin());
+                    std::copy(Ucap[i][gen_depth].begin() + gen_length_node*right_node,
+                              Ucap[i][gen_depth].begin() + gen_length_node*(right_node + 1),
+                              Ucap_right[i].begin());
+                }
+
+                std::vector<std::vector<int>> GetUcap(decod_num);
+                for (int i = 0; i < decod_num; i++) {
+                    GetUcap[i] = SumTwoVectors(Ucap_left[i], Ucap_right[i]);
+                    std::copy(GetUcap[i].begin(), GetUcap[i].end(),
+                              Ucap[i][depth].begin() + length_node*node);
+                }
+                node /= 2; depth--;
+            }
+        }
+    }
+
+    for (int i = 0; i < decod_num; i++) {
+        std::vector<int> temp;
+        for (int j = 0; j < N; j++) {
+            if (IsFrozen[j] == 0) {
+                temp.push_back(Answers[i][j]);
+            }
         }
         Answers[i] = temp;
     }

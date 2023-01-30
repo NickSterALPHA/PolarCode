@@ -105,6 +105,8 @@ std::vector<int> least_reliable_bit(const vector3d_double& L, const int& depth, 
 //find num errors between message and decoded word
 int NumErrors(const std::vector<int>& Msg, const std::vector<int>& DecodWord);
 
+std::vector<std::vector<int>> Upgrade_Fast_SCL(const std::vector<double>& CodeWord,const int& k, const int& decod_num);
+
 
 
 

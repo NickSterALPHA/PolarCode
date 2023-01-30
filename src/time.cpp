@@ -30,7 +30,7 @@ void PrintVector(const std::vector<T>& v) {
 int main() {
     std::vector<int> N = {16, 32, 64, 128, 256, 512};
     std::vector<int> k = {5, 16,  32, 64, 128, 256};
-    std::vector<double> Time_SC, Time_SCL, Time_FastSCL;
+    std::vector<double> Time_SC, Time_SCL, Time_FastSCL, Time_UpgradeFastSCL;
     for (int i = 0; i < 6; i++) {
       std::vector<int> msg = Generate_Vector(k[i]); // generate random vec
       std::vector<int> crc_code = Get_CRC(msg, 8); // get crc
@@ -65,11 +65,19 @@ int main() {
       end = std::chrono::steady_clock::now();
       Time_FastSCL.push_back(std::chrono::duration<double>(end - begin).count());
       DecodedWord = Msg_Correct_CRC(PosibleWords, 8);
+
+
+      begin = std::chrono::steady_clock::now();
+      PosibleWords = Upgrade_Fast_SCL(ReceivedWord, k[i] + 8, 8);
+      end = std::chrono::steady_clock::now();
+      Time_UpgradeFastSCL.push_back(std::chrono::duration<double>(end - begin).count());
+      DecodedWord = Msg_Correct_CRC(PosibleWords, 8);
       
     }
     plt::plot(N, Time_FastSCL, {{"label", "Fast SCL"}});
     plt::plot(N, Time_SCL, {{"label", "SCL"}});
     plt::plot(N, Time_SC, {{"label", "SC"}});
+    plt::plot(N, Time_UpgradeFastSCL, {{"label", "Upgraded Fast SCL"}});
     plt::xlabel("N");
     plt::ylabel("Time, sec");
     plt::legend();

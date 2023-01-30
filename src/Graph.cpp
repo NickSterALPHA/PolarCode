@@ -23,6 +23,7 @@ static int CanNum = 0;
 static bool select_SC = false; 
 static bool select_SCL = false; 
 static bool select_Fast_SCL = false; 
+static bool select_Upgraded_Fast_SCL = false; 
 static double SNR_start = 0.0; 
 static double SNR_end = 0.0; 
 static double SNR_step = 0.0; 
@@ -59,6 +60,8 @@ Fl_Radio_Round_Button *radio_SC=(Fl_Radio_Round_Button *)0;
 Fl_Radio_Round_Button *radio_SCL=(Fl_Radio_Round_Button *)0;
 
 Fl_Radio_Round_Button *radio_Fast_SCL=(Fl_Radio_Round_Button *)0;
+
+Fl_Radio_Round_Button *radio_Upgraded_Fast_SCL=(Fl_Radio_Round_Button*)0;
 
 Fl_Double_Window *Window_Error=(Fl_Double_Window *)0;
 
@@ -101,7 +104,7 @@ bool CheckParams() {
 }
 
 bool SelectDecoder() {
-  return select_SC || select_Fast_SCL || select_SCL;
+  return select_SC || select_Fast_SCL || select_SCL || select_Upgraded_Fast_SCL;
 }
 
 
@@ -109,18 +112,28 @@ void CB_RADIO_SC(Fl_Radio_Round_Button* widg, void *data) {
   select_SC = true;
   select_SCL = false;
   select_Fast_SCL = false;
+  select_Upgraded_Fast_SCL = false;
 }
 
 void CB_RADIO_SCL(Fl_Radio_Round_Button* widg, void *data) {
   select_SC = false;
   select_SCL = true;
   select_Fast_SCL = false;
+  select_Upgraded_Fast_SCL = false;
 }
 
 void CB_RADIO_FAST_SCL(Fl_Radio_Round_Button* widg, void *data) {
   select_SC = false;
   select_SCL = false;
   select_Fast_SCL = true;
+  select_Upgraded_Fast_SCL = false;
+}
+
+void CB_RADIO_UPGRADED_FAST_SCL(Fl_Radio_Round_Button* widg, void *data) {
+  select_SC = false;
+  select_SCL = false;
+  select_Fast_SCL = false;
+  select_Upgraded_Fast_SCL = true;
 }
 
 void CB_INP_SNR_START(Fl_Value_Input* widg, void* data) {
@@ -210,54 +223,56 @@ void CB_BUTTON(Fl_Button* widg, void* data) {
   int GenSize = k + CRC_size;
   for (double cur_SNR = SNR_start; cur_SNR <= SNR_end; cur_SNR += SNR_step) {
     SNR_points.push_back(cur_SNR);
-    double noise = 1 / (std::exp(std::log10(cur_SNR / 10)));
+    double Rate = (double)k / N;
+    double EbNo = std::pow(10, cur_SNR / 10);
+    double noise = std::sqrt(1.0 / (2 * EbNo * Rate));
     noises.push_back(noise);
-    int cur_num_errors = 0, cur_num_iter = 0;
-    double correct_exp = 0.0, num_exp = 0.0;
+    int cur_num_errors = 0;
+    double error_exp = 0.0, num_exp = 0.0;
     
     while(cur_num_errors < CanNum) {
       // generate vector with crc
       std::vector<int> msg = Generate_Vector(k); // generate random vec
       std::vector<int> crc_code = Get_CRC(msg, CRC_size); // get crc
-      msg.insert(msg.end(), crc_code.begin(), crc_code.end()); // insert crc
+      std::vector<int> msg_crc(msg);
+      msg_crc.insert(msg_crc.end(), crc_code.begin(), crc_code.end()); // insert crc
 
       // encode vector
-      std::vector<int> msgFrozen = AddFrozen(msg, N); // adding Frozen
+      std::vector<int> msgFrozen = AddFrozen(msg_crc, N); // adding Frozen
       std::vector<std::vector<int>> Matrix1 = PolarTransform((int)log2(N));
       std::vector<int> CodeWord = PolarEncoding(msgFrozen, Matrix1);
       
       //simulate channel
       BPSK(CodeWord);
-      std::vector<double> ReceivedWord = AWGN(CodeWord, std::sqrt(noise));
+      std::vector<double> ReceivedWord = AWGN(CodeWord, noise);
 
       std::vector<int> DecodedWord;
 
       if (select_SC) {
         DecodedWord = SC_Decoding(ReceivedWord, GenSize);
       } else if (select_SCL) {
-        std::vector<std::vector<int>> PosibleWords = SCList(ReceivedWord, GenSize, 8);
+        std::vector<std::vector<int>> PosibleWords = SCList(ReceivedWord, GenSize, 4);
         DecodedWord = Msg_Correct_CRC(PosibleWords, CRC_size);
       } else if (select_Fast_SCL) {
-        std::vector<std::vector<int>> PosibleWords = Fast_SCL(ReceivedWord, GenSize, 8);
+        std::vector<std::vector<int>> PosibleWords = Fast_SCL(ReceivedWord, GenSize, 4);
+        DecodedWord = Msg_Correct_CRC(PosibleWords, CRC_size);
+      } else if (select_Upgraded_Fast_SCL) {
+        std::vector<std::vector<int>> PosibleWords = Upgrade_Fast_SCL(ReceivedWord, GenSize, 4);
         DecodedWord = Msg_Correct_CRC(PosibleWords, CRC_size);
       }
-
+      
       DecodedWord.erase(DecodedWord.end() - CRC_size, DecodedWord.end()); // delete CRC (need to check)
-
-      if (NumErrors(msg, DecodedWord) == 0) {
-        correct_exp += 1.0;
+      if (NumErrors(msg, DecodedWord) != 0) {
+        error_exp += 1.0;
+        cur_num_errors += 1;
       }
 
       num_exp += 1.0;
-      cur_num_errors += 1;
       }
-    double Prob = correct_exp / num_exp;
+    double Prob = error_exp / num_exp;
     Prob_points.push_back(Prob);
   }
-  PrintVector<double>(Prob_points);
-  PrintVector<double>(SNR_points);
-  PrintVector<double> (noises);
-  plt::plot(SNR_points, Prob_points);
+  plt::semilogy(SNR_points, Prob_points);
   plt::xlabel("SNR, dB");
   plt::ylabel("Probability");
   plt::show();
@@ -299,19 +314,23 @@ int main(int argc, char **argv) {
     { inp_SNR_step = new Fl_Value_Input(430, 345, 60, 30, "Step:");
       inp_SNR_step->callback((Fl_Callback*)CB_INP_SNR_STEP);
     } // Fl_Value_Input* inp_SNR_step
-    { Radio_Group = new Fl_Group(55, 240, 440, 45);
-      { radio_SC = new Fl_Radio_Round_Button(110, 255, 60, 30, "SC");
+    { Radio_Group = new Fl_Group(-5, 245, 560, 45);
+      { radio_SC = new Fl_Radio_Round_Button(85, 255, 60, 30, "SC");
         radio_SC->down_box(FL_ROUND_DOWN_BOX);
         radio_SC->callback((Fl_Callback*)CB_RADIO_SC);
       } // Fl_Round_Button* radio_SC
-      { radio_SCL = new Fl_Radio_Round_Button(280, 255, 60, 30, "SCL");
+      { radio_SCL = new Fl_Radio_Round_Button(185, 255, 60, 30, "SCL");
         radio_SCL->down_box(FL_ROUND_DOWN_BOX);
         radio_SCL->callback((Fl_Callback*)CB_RADIO_SCL);
       } // Fl_Round_Button* radio_SCL
-      { radio_Fast_SCL = new Fl_Radio_Round_Button(400, 255, 60, 30, "Fast SCL");
+      { radio_Fast_SCL = new Fl_Radio_Round_Button(280, 255, 60, 30, "Fast SCL");
         radio_Fast_SCL->down_box(FL_ROUND_DOWN_BOX);
         radio_Fast_SCL->callback((Fl_Callback*)CB_RADIO_FAST_SCL);
       } // Fl_Round_Button* radio_Fast_SCL
+      { radio_Upgraded_Fast_SCL = new Fl_Radio_Round_Button(400, 255, 155, 30, "Upgraded Fast SCL");
+        radio_Upgraded_Fast_SCL->down_box(FL_ROUND_DOWN_BOX);
+        radio_Upgraded_Fast_SCL->callback((Fl_Callback*)CB_RADIO_UPGRADED_FAST_SCL);
+      } // Fl_Round_Button* radio_Upgraded_Fast_SCL
       Radio_Group->end();
     } // Fl_Group* Radio_Group
     My_Win->end();
