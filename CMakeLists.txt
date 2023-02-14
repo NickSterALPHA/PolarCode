@@ -38,3 +38,11 @@ target_link_libraries(Graph fltk
                             PolarCodeLib
                             SimulationLib)
 
+
+add_executable(Unit_Test tests/Unit_Test.cpp)
+
+target_include_directories(Unit_Test PUBLIC tests include)
+
+target_link_libraries(Unit_Test PolarCodeLib SimulationLib)
+
+

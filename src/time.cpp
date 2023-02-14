@@ -28,10 +28,10 @@ void PrintVector(const std::vector<T>& v) {
 
 
 int main() {
-    std::vector<int> N = {16, 32, 64, 128, 256, 512};
-    std::vector<int> k = {5, 16,  32, 64, 128, 256};
+    std::vector<int> N = {16, 32, 64, 128, 256, 512, 1024};
+    std::vector<int> k = {5, 16,  32, 64, 128, 256, 512};
     std::vector<double> Time_SC, Time_SCL, Time_FastSCL, Time_UpgradeFastSCL;
-    for (int i = 0; i < 6; i++) {
+    for (int i = 0; i < 7; i++) {
       std::vector<int> msg = Generate_Vector(k[i]); // generate random vec
       std::vector<int> crc_code = Get_CRC(msg, 8); // get crc
       msg.insert(msg.end(), crc_code.begin(), crc_code.end()); // insert crc

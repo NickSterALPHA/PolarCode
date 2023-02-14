@@ -223,9 +223,7 @@ void CB_BUTTON(Fl_Button* widg, void* data) {
   int GenSize = k + CRC_size;
   for (double cur_SNR = SNR_start; cur_SNR <= SNR_end; cur_SNR += SNR_step) {
     SNR_points.push_back(cur_SNR);
-    double Rate = (double)k / N;
-    double EbNo = std::pow(10, cur_SNR / 10);
-    double noise = std::sqrt(1.0 / (2 * EbNo * Rate));
+    double noise = std::sqrt(std::pow(10, (-cur_SNR / 10) ));
     noises.push_back(noise);
     int cur_num_errors = 0;
     double error_exp = 0.0, num_exp = 0.0;
@@ -251,13 +249,13 @@ void CB_BUTTON(Fl_Button* widg, void* data) {
       if (select_SC) {
         DecodedWord = SC_Decoding(ReceivedWord, GenSize);
       } else if (select_SCL) {
-        std::vector<std::vector<int>> PosibleWords = SCList(ReceivedWord, GenSize, 4);
+        std::vector<std::vector<int>> PosibleWords = SCList(ReceivedWord, GenSize, 16);
         DecodedWord = Msg_Correct_CRC(PosibleWords, CRC_size);
       } else if (select_Fast_SCL) {
-        std::vector<std::vector<int>> PosibleWords = Fast_SCL(ReceivedWord, GenSize, 4);
+        std::vector<std::vector<int>> PosibleWords = Fast_SCL(ReceivedWord, GenSize, 16);
         DecodedWord = Msg_Correct_CRC(PosibleWords, CRC_size);
       } else if (select_Upgraded_Fast_SCL) {
-        std::vector<std::vector<int>> PosibleWords = Upgrade_Fast_SCL(ReceivedWord, GenSize, 4);
+        std::vector<std::vector<int>> PosibleWords = Upgrade_Fast_SCL(ReceivedWord, GenSize, 16);
         DecodedWord = Msg_Correct_CRC(PosibleWords, CRC_size);
       }
       
@@ -272,6 +270,8 @@ void CB_BUTTON(Fl_Button* widg, void* data) {
     double Prob = error_exp / num_exp;
     Prob_points.push_back(Prob);
   }
+  std::cout << Prob_points[Prob_points.size() - 1] << std::endl;
+  plt::figure();
   plt::semilogy(SNR_points, Prob_points);
   plt::xlabel("SNR, dB");
   plt::ylabel("Probability");
